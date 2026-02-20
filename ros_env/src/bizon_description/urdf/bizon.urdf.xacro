@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="bizon">
+    <xacro:arg name="prefix" default="bizon2" />
+
+    <xacro:include
+        filename="$(find bizon_description)/urdf/bizon_description.urdf.xacro" />
+    <!--xacro:include filename="$(find bizon_description)/urdf/bizon_mk1/hand.xacro" /-->
+
+    <xacro:arg name="port_id" default="30200" />
+    <xacro:arg name="ros2_control_hardware_type" default="isaac" />
+    <xacro:arg name="controller" default="true" />
+
+    
+
+    <!--xacro:hand prefix="$(arg prefix)" xyz="0 0 -0.015" rpy="${pi} 0 0"
+        connected_to="$(arg prefix)tip_link" safety_distance="0.01" /-->
+    <xacro:bizon_macro prefix="$(arg prefix)" port_id="$(arg port_id)"
+        ros2_control_hardware_type="$(arg ros2_control_hardware_type)"
+        controller="$(arg controller)" />
+
+    <xacro:if value="$(arg controller)">
+        <xacro:include filename="$(find bizon_description)/urdf/bizon_system_interface.xacro" />
+        <xacro:bizon_system_interface
+            ros2_control_hardware_type="$(arg ros2_control_hardware_type)"
+            prefix="$(arg prefix)" port_id="$(arg port_id)" />
+    </xacro:if>
+
+</robot>

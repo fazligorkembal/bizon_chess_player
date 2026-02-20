@@ -1,0 +1,39 @@
+#acceleration special one ... !
+# Namespace olmadan (global) - node adıyla eşleşir
+
+# Wildcard - herhangi bir namespace ile eşleşir (ROS 2 Humble+)
+/**/test_param_executable:
+  ros__parameters:
+    timeout: 5.0
+    retry_count: 3
+    debug_mode: false
+    acceleration: 20.0
+
+test_param_executable: # No namespace - matches the node name
+  ros__parameters:
+    robot_name: "bizon_default"
+    speed: 1.5
+    max_acceleration: 3.0
+    enabled: true
+    joints: ["joint1", "joint2", "joint3"]
+
+# "bizon1" namespace'i altında
+/bizon1/test_param_executable:
+  ros__parameters:
+    robot_name: "bizon_one"
+    speed: 2.0
+    max_acceleration: 4.5
+    enabled: true
+    joints: ["joint_a", "joint_b", "joint_c"]
+    home_position: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# "bizon2" namespace'i altında
+/bizon2/test_param_executable:
+  ros__parameters:
+    robot_name: "bizon_two"
+    speed: 1.0
+    max_acceleration: 2.5
+    enabled: false
+    joints: ["joint_x", "joint_y", "joint_z"]
+    home_position: [1.0, 0.5, 0.0, -0.5, 0.0, 0.0]
+    acceleration: 15.0

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="bizon_system_interface" params="ros2_control_hardware_type:=^rviz prefix:=^|bizon/ port_id:=^|30200">
+        <ros2_control name="${prefix}_system_interface" type="system">
+            <hardware>
+                <plugin>bizon_ros2_control::BizonSystemInterface</plugin>
+                <param name="port_id">${port_id}</param>
+                <param name="prefix">${prefix}</param>
+                <param name="ros2_control_hardware_type">${ros2_control_hardware_type}</param>
+            </hardware>
+
+            <xacro:macro name="joint_interface" params="name">
+                <joint name="${name}">
+                    <command_interface name="position"/>
+                    <state_interface name="position"/>
+                    <state_interface name="velocity"/>
+                </joint>
+            </xacro:macro>
+
+            <xacro:joint_interface name="${prefix}rev1"/>
+            <xacro:joint_interface name="${prefix}pris1"/>
+            <xacro:joint_interface name="${prefix}rev2"/>
+            <xacro:joint_interface name="${prefix}rev3"/>
+            <xacro:joint_interface name="${prefix}gripper_finger1_joint"/>
+            <xacro:joint_interface name="${prefix}gripper_finger2_joint"/>
+            <xacro:joint_interface name="${prefix}gripper_finger3_joint"/>
+            
+        </ros2_control>
+    </xacro:macro>
+</robot>

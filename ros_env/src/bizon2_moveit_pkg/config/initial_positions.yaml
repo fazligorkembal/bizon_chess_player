@@ -1,0 +1,10 @@
+# Default initial positions for bizon's ros2_control fake system
+
+initial_positions:
+  bizon2gripper_finger1_joint: 0
+  bizon2gripper_finger2_joint: 0
+  bizon2gripper_finger3_joint: 0
+  bizon2pris1: 0
+  bizon2rev1: 0
+  bizon2rev2: 0
+  bizon2rev3: 0

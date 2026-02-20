@@ -1,0 +1,11 @@
+#goal definition
+builtin_interfaces/Duration time
+sensor_msgs/Image image
+string player_side
+---
+#result definition
+string fen
+uint16 error_code
+builtin_interfaces/Duration total_elapsed_time
+---
+#feedback definition

@@ -1,0 +1,7 @@
+<library path="bizon_ros2_control">
+    <class type="bizon_ros2_control::BizonSystemInterface" base_class_type="hardware_interface::SystemInterface">
+        <description>
+            System interface for the Bizon Robots
+        </description>
+    </class>
+</library>

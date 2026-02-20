@@ -1,0 +1,16 @@
+**/build/**
+**/install/**
+**/log/**
+**/BehaviorTree.CPP/
+BehaviorTree.CPP/
+assets/
+datasets/
+**/*.usd
+models/
+**/*.onnx
+**/*.engine
+**/*.wts
+**/*.pt
+tensorrtx/
+**/Stockfish
+last_moves.txt

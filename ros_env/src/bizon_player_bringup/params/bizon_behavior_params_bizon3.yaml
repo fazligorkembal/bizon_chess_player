@@ -1,0 +1,14 @@
+behavior_server:
+  ros__parameters:
+    cycle_frequency: 20.0
+    try_count: 10
+
+    behavior_plugins: ["wait_action", "board_action"]
+    wait_action:
+      plugin: "bizon_behaviors/WaitPlugin"
+    board_action:
+      plugin: "bizon_behaviors/BoardPlugin"
+
+bizon_behavior_tree:
+  ros__parameters:
+    player_side: "white"

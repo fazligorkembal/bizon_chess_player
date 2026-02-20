@@ -1,0 +1,6 @@
+# Default initial positions for bizon's ros2_control fake system
+
+initial_positions:
+  pris1: 0
+  rev1: 0
+  rev2: 0

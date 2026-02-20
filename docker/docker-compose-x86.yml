@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  bizon_chess_player:
+    build:
+      context: .
+      dockerfile: dockerfile-amd64
+    runtime: nvidia
+    network_mode: host
+    shm_size: "16g"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../:/home/user/Documents/bizon_chess_player
+    privileged: true
+    environment:
+      - DISPLAY
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - QT_X11_NO_MITSHM=1
+    working_dir: /home/user/Documents/bizon_chess_player

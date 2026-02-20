@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="bizon_ros2_control" params="name initial_positions_file">
+        <xacro:property name="initial_positions"
+            value="${load_yaml(initial_positions_file)['initial_positions']}" />
+
+        <ros2_control name="bizon2_system_interface" type="system">
+            <hardware>
+                <plugin>bizon_ros2_control::BizonSystemInterface</plugin>
+                <param name="port_id">30200</param>
+                <param name="prefix">bizon2</param>
+                <param name="ros2_control_hardware_type">isaac</param>
+            </hardware>
+            <joint name="bizon2rev1">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="bizon2pris1">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="bizon2rev2">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="bizon2rev3">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="bizon2gripper_finger1_joint">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="bizon2gripper_finger2_joint">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="bizon2gripper_finger3_joint">
+                <command_interface name="position" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+        </ros2_control>
+    </xacro:macro>
+</robot>

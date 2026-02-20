@@ -1,0 +1,12 @@
+<class_libraries>
+	<library path="bizon_wait_behavior">
+	  <class name="bizon_behaviors/WaitPlugin" type="bizon_behaviors::WaitPlugin" base_class_type="bizon_core::Behavior">
+	    <description></description>
+	  </class>
+	</library>
+	<library path="bizon_board_behavior">
+	  <class name="bizon_behaviors/BoardPlugin" type="bizon_behaviors::BoardPlugin" base_class_type="bizon_core::Behavior">
+	    <description></description>
+	  </class>
+	</library>
+</class_libraries>

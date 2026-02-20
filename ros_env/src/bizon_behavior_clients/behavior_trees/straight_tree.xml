@@ -1,0 +1,23 @@
+<root BTCPP_format="4">
+    <BehaviorTree ID="MainTree">
+        <Sequence name="NavigateRecovery">
+            <Script code="home_position := '-1.5807;0.0;1.5807;0.0'; move1_to_from := '-0.754;0.0;2.349;0.0'"/>
+            <Script code="move1_to_down1 := '-0.754;0.155;2.349;0.0'"/>
+            <Script code="move1_to_to := '-0.706;0.0;1.933;0.0'"/>
+            <Script code="move1_to_down2 := '-0.706;0.155;1.933;0.0'"/>
+            <Script code="hand_close_position := '0.04;0.04;0.04'; hand_open_position := '0.20;0.20;0.20'"/>           
+
+            <WaitActionClient server_name="wait_action" sec="2" nanosec="0" />
+            <ArmActionClient player_side="white" target_joint_positions="{home_position}" target_hand_position="{hand_close_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_from}" target_hand_position="{hand_open_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_down1}" target_hand_position="{hand_open_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_down1}" target_hand_position="{hand_close_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_from}" target_hand_position="{hand_close_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_to}" target_hand_position="{hand_close_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_down2}" target_hand_position="{hand_close_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_down2}" target_hand_position="{hand_open_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{move1_to_to}" target_hand_position="{hand_close_position}" />
+            <ArmActionClient player_side="white" target_joint_positions="{home_position}" target_hand_position="{hand_close_position}" />
+        </Sequence>
+    </BehaviorTree>
+</root>
