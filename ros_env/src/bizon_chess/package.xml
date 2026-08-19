@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>bizon_chess</name>
+  <version>0.0.0</version>
+  <description>Pure chess board geometry and FEN logic, no ROS dependencies</description>
+  <maintainer email="bal.gorkem@ustunova.com.tr">Fazli Gorkem Bal</maintainer>
+  <license>Proprietary</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
