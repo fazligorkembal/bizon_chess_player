@@ -34,14 +34,15 @@ int main(int argc, char **argv)
         "board_action_isaac_client_node",
         "make_decision_client_node",
         "condition_node",
-        "foreach_node"
+        "foreach_node",
+        "recovery_node"
     };
 
     RCLCPP_INFO(rclcpp::get_logger("main"), "Loading BT plugin libraries...");
     RCLCPP_INFO(rclcpp::get_logger("main"), "Namespace: %s", nh->get_namespace());
     RCLCPP_INFO(rclcpp::get_logger("main"), "Number of plugins to load: %zu", plugin_lib_names_.size());
 
-    fs::path bt_file = fs::path(ament_index_cpp::get_package_share_directory("bizon_behavior_clients")) / "behavior_trees" / "simple_wait_tree.xml";
+    fs::path bt_file = fs::path(ament_index_cpp::get_package_share_directory("bizon_behavior_clients")) / "behavior_trees" / "chess_game.xml";
     BT::Blackboard::Ptr blackboard;
     BT::Tree tree;
 
@@ -81,6 +82,13 @@ int main(int argc, char **argv)
     std::string player_side = (ns == "/bizon3" || ns == "bizon3") ? "black" : "white";
     blackboard->set<std::string>("player_side", player_side);
     RCLCPP_INFO(nh->get_logger(), "Namespace: %s, Player side: %s", ns.c_str(), player_side.c_str());
+
+    // Recovery waypoints. The release pose is the current-height retreat used
+    // to set a held piece down; the lift pose clears the board before homing.
+    // Values match the joint layout used throughout the trees:
+    // {rev1, pris1, rev2, rev3}, with pris1 = 0.0 meaning fully retracted.
+    blackboard->set<std::string>("recovery_release_position", "-1.5807;0.155;1.5807;0.0");
+    blackboard->set<std::string>("recovery_lift_position", "-1.5807;0.0;1.5807;0.0");
     try
     {
         factory_.registerBehaviorTreeFromText(xml_string);
@@ -108,12 +116,12 @@ int main(int argc, char **argv)
             executor_->remove_node(nh);
         });
 
-    for (int i = 0; i < 1; i++)
+    BT::NodeStatus status = BT::NodeStatus::RUNNING;
+    while (rclcpp::ok() && status == BT::NodeStatus::RUNNING)
     {
-        BT::NodeStatus status = tree.tickWhileRunning();
-
-        std::cout << "Tick " << i << " returned: " << status << std::endl;
+        status = tree.tickWhileRunning();
     }
+    std::cout << "Tree finished with: " << status << std::endl;
 
     std::cout << "Shutting down..." << std::endl;
 

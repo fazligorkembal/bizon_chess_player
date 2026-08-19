@@ -77,6 +77,9 @@ list(APPEND plugin_libs condition_node)
 add_library(foreach_node SHARED plugins/control/foreach_node.cpp)
 list(APPEND plugin_libs foreach_node)
 
+add_library(recovery_node SHARED plugins/control/recovery_node.cpp)
+list(APPEND plugin_libs recovery_node)
+
 foreach(bt_plugin ${plugin_libs})
   ament_target_dependencies(${bt_plugin} ${dependencies})
   target_compile_definitions(${bt_plugin} PRIVATE BT_PLUGIN_EXPORT)
@@ -101,6 +104,10 @@ if(BUILD_TESTING)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_recovery_node test/test_recovery_node.cpp)
+  target_link_libraries(test_recovery_node recovery_node)
+  ament_target_dependencies(test_recovery_node ${dependencies})
   ament_lint_auto_find_test_dependencies()
 endif()
 
