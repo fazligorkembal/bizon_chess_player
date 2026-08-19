@@ -112,6 +112,20 @@ if(BUILD_TESTING)
   ament_add_gtest(test_arm_action_client_node test/test_arm_action_client_node.cpp)
   target_link_libraries(test_arm_action_client_node arm_action_client_node)
   ament_target_dependencies(test_arm_action_client_node ${dependencies})
+
+  # Structural guard only: parses the shipped chess_game.xml with tinyxml2 and
+  # walks the DOM directly, without building a BT::Tree (which would require a
+  # live MoveGroupInterface, a move_group action server, and every other BT
+  # plugin's runtime dependencies -- unavailable in this unit-test
+  # environment). See test/test_chess_game_tree_structure.cpp for what it does
+  # and does not prove.
+  find_package(tinyxml2_vendor REQUIRED)
+  find_package(TinyXML2 REQUIRED)
+  ament_add_gtest(test_chess_game_tree_structure test/test_chess_game_tree_structure.cpp)
+  target_link_libraries(test_chess_game_tree_structure tinyxml2::tinyxml2)
+  target_compile_definitions(test_chess_game_tree_structure PRIVATE
+    CHESS_GAME_XML_PATH="${CMAKE_CURRENT_SOURCE_DIR}/behavior_trees/chess_game.xml")
+
   ament_lint_auto_find_test_dependencies()
 endif()
 

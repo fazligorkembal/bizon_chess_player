@@ -116,11 +116,13 @@ int main(int argc, char **argv)
             executor_->remove_node(nh);
         });
 
-    BT::NodeStatus status = BT::NodeStatus::RUNNING;
-    while (rclcpp::ok() && status == BT::NodeStatus::RUNNING)
-    {
-        status = tree.tickWhileRunning();
-    }
+    // tickWhileRunning() already loops internally until the tree reaches a
+    // terminal status, so one call plays the whole game: MainTree's
+    // KeepRunningUntilFailure keeps ticking PlayUntilGameOver for every move,
+    // and only stops once CheckGameOver reports the game is over (SUCCESS) or
+    // RecoveryNode exhausts its retries on a fault it couldn't recover from
+    // (FAILURE).
+    BT::NodeStatus status = tree.tickWhileRunning();
     std::cout << "Tree finished with: " << status << std::endl;
 
     std::cout << "Shutting down..." << std::endl;

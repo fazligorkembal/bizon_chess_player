@@ -1,49 +1,66 @@
 <root BTCPP_format="4">
-    <!-- Main game loop. The work branch performs one full move; the recovery
-         branch always releases the piece and lifts clear before the work
-         branch is allowed to run again. -->
+    <!-- Two separate loops, deliberately not conflated:
+         - KeepRunningUntilFailure plus Inverter(CheckGameOver) is the GAME loop: it
+           plays moves until a king is captured (or a fault forces the tree to give
+           up). This is the loop straight_tree.xml's RunUntilSuccess used to run by
+           overloading a per-move condition failure as "loop again"; doing that
+           here would make RecoveryNode treat every ordinary non-final move as a
+           fault (see git history for the regression this replaces).
+         - RecoveryNode handles genuine faults only. Its work branch performs one
+           full move; the recovery branch always releases the piece and lifts clear
+           before the work branch is allowed to run again. A move that succeeds
+           never touches the recovery branch at all. -->
     <BehaviorTree ID="MainTree">
-        <RecoveryNode number_of_retries="3">
+        <KeepRunningUntilFailure>
+            <Sequence name="PlayUntilGameOver">
 
-            <Sequence name="PlayOneMove">
-                <Script code="home_position := '-1.5807;0.0;1.5807;0.0'; hand_open_position := '0.20;0.20;0.20'; hand_close_position := '0.04;0.04;0.04'" />
-                <ArmActionClient player_side="{player_side}"
-                    target_joint_positions="{home_position}"
-                    target_hand_position="{hand_close_position}" />
-                <BoardActionIsaacClient server_name="board_action" sec="15" nanosec="0"
-                    player_side="{player_side}" fen="{fen}" />
-                <MakeDecisionClient player_side="{player_side}" fen="{fen}"
-                    hand_open_position="{hand_open_position}"
-                    hand_close_position="{hand_close_position}"
-                    move_type="{move_type}"
-                    move_count="{move_count}"
-                    move_from1="{move_from1}" move_from_down1="{move_from_down1}"
-                    move_to1="{move_to1}" move_to_down1="{move_to_down1}"
-                    move_from2="{move_from2}" move_from_down2="{move_from_down2}"
-                    move_to2="{move_to2}" move_to_down2="{move_to_down2}"
-                    move_from3="{move_from3}" move_from_down3="{move_from_down3}"
-                    move_to3="{move_to3}" move_to_down3="{move_to_down3}" />
-                <Foreach name="MoveLoop"
-                    move_count="{move_count}"
-                    move_from1="{move_from1}" move_from_down1="{move_from_down1}"
-                    move_to1="{move_to1}" move_to_down1="{move_to_down1}"
-                    move_from2="{move_from2}" move_from_down2="{move_from_down2}"
-                    move_to2="{move_to2}" move_to_down2="{move_to_down2}"
-                    move_from3="{move_from3}" move_from_down3="{move_from_down3}"
-                    move_to3="{move_to3}" move_to_down3="{move_to_down3}"
-                    move_from="{move_from}" move_from_down="{move_from_down}"
-                    move_to="{move_to}" move_to_down="{move_to_down}">
-                    <SubTree ID="MoveSequence" _autoremap="true"/>
-                </Foreach>
-                <ArmActionClient player_side="{player_side}"
-                    target_joint_positions="{home_position}"
-                    target_hand_position="{hand_close_position}" />
-                <ConditionNode name="CheckGameOver" param1="{move_type}" param2="killking" />
+                <RecoveryNode number_of_retries="3">
+
+                    <Sequence name="PlayOneMove">
+                        <Script code="home_position := '-1.5807;0.0;1.5807;0.0'; hand_open_position := '0.20;0.20;0.20'; hand_close_position := '0.04;0.04;0.04'" />
+                        <ArmActionClient player_side="{player_side}"
+                            target_joint_positions="{home_position}"
+                            target_hand_position="{hand_close_position}" />
+                        <BoardActionIsaacClient server_name="board_action" sec="15" nanosec="0"
+                            player_side="{player_side}" fen="{fen}" />
+                        <MakeDecisionClient player_side="{player_side}" fen="{fen}"
+                            hand_open_position="{hand_open_position}"
+                            hand_close_position="{hand_close_position}"
+                            move_type="{move_type}"
+                            move_count="{move_count}"
+                            move_from1="{move_from1}" move_from_down1="{move_from_down1}"
+                            move_to1="{move_to1}" move_to_down1="{move_to_down1}"
+                            move_from2="{move_from2}" move_from_down2="{move_from_down2}"
+                            move_to2="{move_to2}" move_to_down2="{move_to_down2}"
+                            move_from3="{move_from3}" move_from_down3="{move_from_down3}"
+                            move_to3="{move_to3}" move_to_down3="{move_to_down3}" />
+                        <Foreach name="MoveLoop"
+                            move_count="{move_count}"
+                            move_from1="{move_from1}" move_from_down1="{move_from_down1}"
+                            move_to1="{move_to1}" move_to_down1="{move_to_down1}"
+                            move_from2="{move_from2}" move_from_down2="{move_from_down2}"
+                            move_to2="{move_to2}" move_to_down2="{move_to_down2}"
+                            move_from3="{move_from3}" move_from_down3="{move_from_down3}"
+                            move_to3="{move_to3}" move_to_down3="{move_to_down3}"
+                            move_from="{move_from}" move_from_down="{move_from_down}"
+                            move_to="{move_to}" move_to_down="{move_to_down}">
+                            <SubTree ID="MoveSequence" _autoremap="true"/>
+                        </Foreach>
+                        <ArmActionClient player_side="{player_side}"
+                            target_joint_positions="{home_position}"
+                            target_hand_position="{hand_close_position}" />
+                    </Sequence>
+
+                    <SubTree ID="RecoverArm" _autoremap="true"/>
+
+                </RecoveryNode>
+
+                <Inverter>
+                    <ConditionNode name="CheckGameOver" param1="{move_type}" param2="killking" />
+                </Inverter>
+
             </Sequence>
-
-            <SubTree ID="RecoverArm" _autoremap="true"/>
-
-        </RecoveryNode>
+        </KeepRunningUntilFailure>
     </BehaviorTree>
 
     <!-- Order matters and is the whole point: open the gripper BEFORE moving,
