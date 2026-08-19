@@ -76,15 +76,23 @@ RUN pip3 install "setuptools<81"
 
 RUN rosdep init
 
-# rosdep fetches the distro index over HTTP with its own short timeout that the
-# apt/pip retry settings above do not cover, and it fails the whole layer on a
-# single "read operation timed out". Retry it rather than rebuilding the image.
-RUN for i in 1 2 3 4 5; do \
+# rosdep fetches the distro index over HTTP with its own short, non-configurable
+# timeout. Container networking here reaches raw.githubusercontent.com roughly 8x
+# slower than the host does, which trips that timeout on every attempt.
+#
+# This is not fatal for this image: the documented build path is `colcon build`,
+# and nothing here or in the README invokes `rosdep install`. Failing a multi-GB
+# image build on an optional metadata fetch is not worth it, so retry a few times
+# and carry on with a loud warning if the index stays unreachable.
+RUN for i in 1 2 3; do \
         rosdep update && break; \
         echo "rosdep update attempt $i failed"; \
-        if [ "$i" = 5 ]; then exit 1; fi; \
-        sleep 15; \
-    done
+        if [ "$i" = 3 ]; then \
+            echo "WARNING: rosdep index unavailable; 'rosdep install' will not work"; \
+            echo "WARNING: run 'rosdep update' inside the container before using it"; \
+        fi; \
+        sleep 10; \
+    done; true
 
 
 
