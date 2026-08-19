@@ -39,8 +39,14 @@ namespace bizon_behavior_clients
         // Async movement tracking
         std::future<moveit::core::MoveItErrorCode> move_future_arm_;
         std::future<moveit::core::MoveItErrorCode> move_future_hand_;
-        std::atomic<bool> move_started_{false};
-        
+        enum class Phase
+        {
+          IDLE,
+          ARM_MOVING,
+          HAND_MOVING,
+        };
+        Phase phase_{Phase::IDLE};
+
         std::string player_side_;
         std::vector<double> target_joint_positions_;
         std::vector<double> target_hand_position_;

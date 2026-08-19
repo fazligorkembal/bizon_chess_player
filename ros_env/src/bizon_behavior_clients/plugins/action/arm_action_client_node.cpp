@@ -72,66 +72,82 @@ namespace bizon_behavior_clients
         }
 
         move_group_arm_ptr_->setJointValueTarget(target_joint_positions_);
-        move_group_hand_ptr_->setJointValueTarget(target_hand_position_);
 
-        // Start async movement
+        // Arm first, gripper afterwards. Running them concurrently means a
+        // settling correction on the arm can execute while the fingers are
+        // closing, which knocks the piece over on real hardware.
         move_future_arm_ = std::async(std::launch::async, [this]()
         {
             return move_group_arm_ptr_->move();
         });
 
-        move_future_hand_ = std::async(std::launch::async, [this]()
-        {
-            return move_group_hand_ptr_->move();
-        });
-
-        move_started_ = true;
-        RCLCPP_INFO(node_->get_logger(), "Arm movement started (async)");
+        phase_ = Phase::ARM_MOVING;
+        RCLCPP_INFO(node_->get_logger(), "Arm movement started");
 
         return BT::NodeStatus::RUNNING;
     }
 
     BT::NodeStatus ArmActionClientNode::onRunning()
     {
-        if (!move_started_)
+        if (phase_ == Phase::ARM_MOVING)
         {
-            return BT::NodeStatus::FAILURE;
-        }
-
-        // Check if async move is complete
-        if (move_future_arm_.wait_for(std::chrono::milliseconds(10)) == std::future_status::ready &&
-            move_future_hand_.wait_for(std::chrono::milliseconds(10)) == std::future_status::ready)
-        {
-            auto result_arm = move_future_arm_.get();
-            auto result_hand = move_future_hand_.get();
-            move_started_ = false;
-
-            if (result_arm == moveit::core::MoveItErrorCode::SUCCESS && result_hand == moveit::core::MoveItErrorCode::SUCCESS)
+            if (move_future_arm_.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready)
             {
-                RCLCPP_INFO(node_->get_logger(), "Arm movement completed successfully");
-                return BT::NodeStatus::SUCCESS;
+                return BT::NodeStatus::RUNNING;
             }
-            else
+
+            const auto result_arm = move_future_arm_.get();
+            if (result_arm != moveit::core::MoveItErrorCode::SUCCESS)
             {
                 RCLCPP_ERROR(node_->get_logger(), "Arm movement failed with error code: %d", result_arm.val);
+                phase_ = Phase::IDLE;
+                return BT::NodeStatus::FAILURE;
+            }
+
+            // Arm has settled; only now command the gripper.
+            move_group_hand_ptr_->setJointValueTarget(target_hand_position_);
+            move_future_hand_ = std::async(std::launch::async, [this]()
+            {
+                return move_group_hand_ptr_->move();
+            });
+            phase_ = Phase::HAND_MOVING;
+            return BT::NodeStatus::RUNNING;
+        }
+
+        if (phase_ == Phase::HAND_MOVING)
+        {
+            if (move_future_hand_.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready)
+            {
+                return BT::NodeStatus::RUNNING;
+            }
+
+            const auto result_hand = move_future_hand_.get();
+            phase_ = Phase::IDLE;
+            if (result_hand != moveit::core::MoveItErrorCode::SUCCESS)
+            {
                 RCLCPP_ERROR(node_->get_logger(), "Hand movement failed with error code: %d", result_hand.val);
                 return BT::NodeStatus::FAILURE;
             }
+
+            RCLCPP_INFO(node_->get_logger(), "Arm and hand movement completed successfully");
+            return BT::NodeStatus::SUCCESS;
         }
 
-        // Still running
-        RCLCPP_DEBUG(node_->get_logger(), "Arm movement in progress...");
-        return BT::NodeStatus::RUNNING;
+        return BT::NodeStatus::FAILURE;
     }
 
     void ArmActionClientNode::onHalted()
     {
         RCLCPP_WARN(node_->get_logger(), "ArmActionClient halted - stopping movement");
-        if (move_started_)
+        if (phase_ == Phase::ARM_MOVING)
         {
             move_group_arm_ptr_->stop();
-            move_started_ = false;
         }
+        else if (phase_ == Phase::HAND_MOVING)
+        {
+            move_group_hand_ptr_->stop();
+        }
+        phase_ = Phase::IDLE;
     }
 }
 
