@@ -46,6 +46,16 @@ RUN cmake -D CMAKE_BUILD_TYPE=RELEASE \
 RUN make -j$(nproc) && make install
 RUN pip3 install torch torchvision --upgrade --force-reinstall
 
+# Download resilience for the large pip and apt steps below. Builds here have
+# failed repeatedly on read timeouts against files.pythonhosted.org and the ROS
+# archive; without retries a single dropped connection discards the whole layer.
+# Placed after the OpenCV and torch steps so a rebuild never recompiles OpenCV.
+ENV PIP_DEFAULT_TIMEOUT=120
+ENV PIP_RETRIES=10
+RUN echo 'Acquire::Retries "10";' > /etc/apt/apt.conf.d/80-retries \
+    && echo 'Acquire::http::Timeout "120";' >> /etc/apt/apt.conf.d/80-retries \
+    && echo 'Acquire::https::Timeout "120";' >> /etc/apt/apt.conf.d/80-retries
+
 RUN apt-get update && apt-get upgrade -y
 RUN pip3 install onnxslim onnxruntime-gpu matplotlib tqdm requests psutil
 RUN pip3 install "numpy<2"
