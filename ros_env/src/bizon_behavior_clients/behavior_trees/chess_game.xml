@@ -51,8 +51,7 @@
          rather than dragged across the board. -->
     <BehaviorTree ID="RecoverArm">
         <Sequence name="RecoverArm">
-            <ArmActionClient player_side="{player_side}"
-                target_joint_positions="{recovery_release_position}"
+            <ArmActionClient player_side="{player_side}" hand_only="true"
                 target_hand_position="{hand_open_position}" />
             <ArmActionClient player_side="{player_side}"
                 target_joint_positions="{recovery_lift_position}"

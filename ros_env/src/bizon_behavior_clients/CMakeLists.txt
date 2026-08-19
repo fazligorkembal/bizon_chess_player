@@ -108,6 +108,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_recovery_node test/test_recovery_node.cpp)
   target_link_libraries(test_recovery_node recovery_node)
   ament_target_dependencies(test_recovery_node ${dependencies})
+
+  ament_add_gtest(test_arm_action_client_node test/test_arm_action_client_node.cpp)
+  target_link_libraries(test_arm_action_client_node arm_action_client_node)
+  ament_target_dependencies(test_arm_action_client_node ${dependencies})
   ament_lint_auto_find_test_dependencies()
 endif()
 

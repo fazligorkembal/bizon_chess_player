@@ -52,15 +52,36 @@ namespace bizon_behavior_clients
             return BT::NodeStatus::FAILURE;
         }
 
-        if (!getInput<std::vector<double>>("target_joint_positions", target_joint_positions_))
-        {
-            RCLCPP_ERROR(node_->get_logger(), "Missing required input port [target_joint_positions]");
-            return BT::NodeStatus::FAILURE;
-        }
+        // hand_only lets a caller (e.g. the recovery subtree) command only the
+        // gripper, without ever reading or acting on target_joint_positions.
+        // This is the only way to open the gripper without first completing an
+        // arm move: see the "Arm first, gripper afterwards" note below.
+        bool hand_only = false;
+        getInput<bool>("hand_only", hand_only);
 
         if (!getInput<std::vector<double>>("target_hand_position", target_hand_position_))
         {
             RCLCPP_ERROR(node_->get_logger(), "Missing required input port [target_hand_position]");
+            return BT::NodeStatus::FAILURE;
+        }
+
+        if (hand_only)
+        {
+            move_group_hand_ptr_->setJointValueTarget(target_hand_position_);
+            move_future_hand_ = std::async(std::launch::async, [this]()
+            {
+                return move_group_hand_ptr_->move();
+            });
+
+            phase_ = Phase::HAND_MOVING;
+            RCLCPP_INFO(node_->get_logger(), "Hand-only movement started (arm left stationary)");
+
+            return BT::NodeStatus::RUNNING;
+        }
+
+        if (!getInput<std::vector<double>>("target_joint_positions", target_joint_positions_))
+        {
+            RCLCPP_ERROR(node_->get_logger(), "Missing required input port [target_joint_positions]");
             return BT::NodeStatus::FAILURE;
         }
 

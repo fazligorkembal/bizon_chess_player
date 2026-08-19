@@ -83,11 +83,11 @@ int main(int argc, char **argv)
     blackboard->set<std::string>("player_side", player_side);
     RCLCPP_INFO(nh->get_logger(), "Namespace: %s, Player side: %s", ns.c_str(), player_side.c_str());
 
-    // Recovery waypoints. The release pose is the current-height retreat used
-    // to set a held piece down; the lift pose clears the board before homing.
-    // Values match the joint layout used throughout the trees:
-    // {rev1, pris1, rev2, rev3}, with pris1 = 0.0 meaning fully retracted.
-    blackboard->set<std::string>("recovery_release_position", "-1.5807;0.155;1.5807;0.0");
+    // Recovery waypoint. The piece is released in place first (RecoverArm's
+    // hand_only step, no joint target involved), then the arm lifts clear of
+    // the board on this pose before homing. Values match the joint layout
+    // used throughout the trees: {rev1, pris1, rev2, rev3}, with pris1 = 0.0
+    // meaning fully retracted.
     blackboard->set<std::string>("recovery_lift_position", "-1.5807;0.0;1.5807;0.0");
     try
     {

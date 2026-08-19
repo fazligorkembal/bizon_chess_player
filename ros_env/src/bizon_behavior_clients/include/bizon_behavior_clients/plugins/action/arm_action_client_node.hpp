@@ -26,6 +26,8 @@ namespace bizon_behavior_clients
                 BT::InputPort<std::string>("player_side", "Player side, white or black"),
                 BT::InputPort<std::vector<double>>("target_joint_positions", "Target joint positions for the arm"),
                 BT::InputPort<std::vector<double>>("target_hand_position", "Target joint positions for the hand"),
+                BT::InputPort<bool>("hand_only", false,
+                    "Command only the gripper, leaving the arm stationary"),
             };
         }
 
