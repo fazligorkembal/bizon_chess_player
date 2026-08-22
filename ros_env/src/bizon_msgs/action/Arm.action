@@ -1,0 +1,12 @@
+#goal definition
+float64[] target_joint_positions
+float64[] target_hand_position
+string player_side
+bool hand_only
+---
+#result definition
+uint16 error_code
+builtin_interfaces/Duration total_elapsed_time
+---
+#feedback definition
+string phase
