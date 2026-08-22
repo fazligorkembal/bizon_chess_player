@@ -102,12 +102,37 @@ private:
 
   bool ensure_engine_running();
 
+  // Search depth plus the two UCI options that tune how hard the engine
+  // tries: skill_level (0-20, engine plays deliberately worse below 20) and
+  // multipv (how many candidate lines it ranks, which slows and broadens
+  // its choice among near-equal moves). One of these is looked up per
+  // search by player_side_ -- see get_best_move().
+  struct EngineStrength
+  {
+    int search_depth;
+    int skill_level;
+    int multipv;
+  };
+
   // ---- Configuration: bizon_chess::RobotParams and the decision-specific
   // knobs, all read from decision_action.* ROS parameters in onConfigure().
   // Replaces the constants at the old make_decision_client_node.hpp:103-110
-  // and the depth/timeout magic numbers inline in the old get_best_move(). ----
+  // and the depth/timeout/skill-level magic numbers inline in the old
+  // get_best_move(). ----
   bizon_chess::RobotParams robot_params_;
-  int search_depth_{10};
+  // The old get_best_move() deliberately handicapped one side (white:
+  // Skill Level 5, MultiPV 3, depth 10) while the other searched at full
+  // engine strength (black: depth 20, and -- because it never sent
+  // "setoption name Skill Level"/"MultiPV" at all -- the engine's own
+  // defaults, Skill Level 20 and MultiPV 1). That is not dead configuration
+  // to unify away: this stack is heading for a single arm against a human
+  // opponent, so how hard the robot plays is a knob its operator tunes per
+  // robot/side, not something a refactor should decide. Both sides are
+  // parameterized identically (decision_action.white.*/decision_action.black.*)
+  // so either can be retuned without a code change; the defaults below
+  // reproduce the old hardcoded values bit for bit.
+  EngineStrength white_strength_{10, 5, 3};
+  EngineStrength black_strength_{20, 20, 1};
   std::chrono::milliseconds search_timeout_{10000};
   int engine_threads_{1};
   int engine_hash_mb_{16};

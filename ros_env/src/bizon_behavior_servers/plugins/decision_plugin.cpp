@@ -105,10 +105,35 @@ void DecisionPlugin::onConfigure()
 {
   auto node = node_.lock();
 
-  if (!node->has_parameter(behavior_name_ + ".search_depth")) {
-    node->declare_parameter(behavior_name_ + ".search_depth", search_depth_);
+  // Per-side engine strength -- see the EngineStrength/white_strength_/
+  // black_strength_ comments in the header for why this is not a single
+  // flat search_depth. Selected at search time by player_side_, in
+  // get_best_move().
+  if (!node->has_parameter(behavior_name_ + ".white.search_depth")) {
+    node->declare_parameter(behavior_name_ + ".white.search_depth", white_strength_.search_depth);
   }
-  node->get_parameter(behavior_name_ + ".search_depth", search_depth_);
+  node->get_parameter(behavior_name_ + ".white.search_depth", white_strength_.search_depth);
+  if (!node->has_parameter(behavior_name_ + ".white.skill_level")) {
+    node->declare_parameter(behavior_name_ + ".white.skill_level", white_strength_.skill_level);
+  }
+  node->get_parameter(behavior_name_ + ".white.skill_level", white_strength_.skill_level);
+  if (!node->has_parameter(behavior_name_ + ".white.multipv")) {
+    node->declare_parameter(behavior_name_ + ".white.multipv", white_strength_.multipv);
+  }
+  node->get_parameter(behavior_name_ + ".white.multipv", white_strength_.multipv);
+
+  if (!node->has_parameter(behavior_name_ + ".black.search_depth")) {
+    node->declare_parameter(behavior_name_ + ".black.search_depth", black_strength_.search_depth);
+  }
+  node->get_parameter(behavior_name_ + ".black.search_depth", black_strength_.search_depth);
+  if (!node->has_parameter(behavior_name_ + ".black.skill_level")) {
+    node->declare_parameter(behavior_name_ + ".black.skill_level", black_strength_.skill_level);
+  }
+  node->get_parameter(behavior_name_ + ".black.skill_level", black_strength_.skill_level);
+  if (!node->has_parameter(behavior_name_ + ".black.multipv")) {
+    node->declare_parameter(behavior_name_ + ".black.multipv", black_strength_.multipv);
+  }
+  node->get_parameter(behavior_name_ + ".black.multipv", black_strength_.multipv);
 
   double search_timeout_s = 10.0;
   if (!node->has_parameter(behavior_name_ + ".search_timeout")) {
@@ -179,8 +204,12 @@ void DecisionPlugin::onConfigure()
   node->get_parameter(behavior_name_ + ".state_file", state_file_template_);
 
   RCLCPP_INFO(
-    node->get_logger(), "[%s] DecisionPlugin configured (search_depth=%d, search_timeout=%.1fs)",
-    behavior_name_.c_str(), search_depth_, search_timeout_s);
+    node->get_logger(),
+    "[%s] DecisionPlugin configured (white: depth=%d skill=%d multipv=%d; "
+    "black: depth=%d skill=%d multipv=%d; search_timeout=%.1fs)",
+    behavior_name_.c_str(), white_strength_.search_depth, white_strength_.skill_level,
+    white_strength_.multipv, black_strength_.search_depth, black_strength_.skill_level,
+    black_strength_.multipv, search_timeout_s);
 }
 
 void DecisionPlugin::onCleanup()
@@ -846,7 +875,17 @@ bool DecisionPlugin::is_checkmate(const std::string & fen)
 
 bool DecisionPlugin::get_best_move(const std::string & fen, std::string & move_out)
 {
-  return engine_.bestMove(fen, search_depth_, search_timeout_, move_out);
+  // Selected by player_side_ rather than a hardcoded branch -- see the
+  // white_strength_/black_strength_ comment in the header for why the two
+  // sides are allowed to differ at all. Sent on every search, not once at
+  // startup: a single long-lived engine process can be asked to move for
+  // either side across goals, so a value set once at start() could leak
+  // from one side's search into the other's.
+  const EngineStrength & strength = (player_side_ == "white") ? white_strength_ : black_strength_;
+  engine_.setOption("Skill Level", std::to_string(strength.skill_level));
+  engine_.setOption("MultiPV", std::to_string(strength.multipv));
+
+  return engine_.bestMove(fen, strength.search_depth, search_timeout_, move_out);
 }
 
 std::string DecisionPlugin::get_last_move_from_text()

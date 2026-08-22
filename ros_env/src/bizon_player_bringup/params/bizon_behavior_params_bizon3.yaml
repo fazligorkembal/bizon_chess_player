@@ -13,7 +13,18 @@ behavior_server:
       planning_time: 15.0
     decision_action:
       plugin: "bizon_behaviors/DecisionPlugin"
-      search_depth: 10
+      # Deliberate per-side engine-strength handicap, not hardware tuning:
+      # white plays deliberately weaker (Skill Level 5, MultiPV 3, depth 10)
+      # so a human opponent has a chance, while black searches at full
+      # engine strength. Tune per robot/side here, not in code.
+      white:
+        search_depth: 10
+        skill_level: 5
+        multipv: 3
+      black:
+        search_depth: 20
+        skill_level: 20
+        multipv: 1
       search_timeout: 10.0
       engine_threads: 1
       engine_hash_mb: 16
