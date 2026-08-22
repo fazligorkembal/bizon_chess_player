@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# Build or test the bizon_chess_player ROS 2 workspace inside its Docker image and
+# print only what is worth reading: a one-line verdict on success, or the failing
+# packages and the decisive compiler errors on failure. The full log is always
+# kept on disk and its path is printed, so nothing is lost.
+#
+# Usage:
+#   rosbuild [colcon build args...]     build the workspace
+#   rosbuild --test [colcon test args]  run the tests and summarise results
+#   rosbuild --log                      print the path of the last full log
+#   rosbuild --explain                  summarise the last failure with the local model
+#
+# Everything after the mode flag is passed straight through to colcon, so
+# `rosbuild --packages-select bizon_behavior_clients` works as expected.
+
+set -uo pipefail
+
+# Derived from the script's own location so the checkout can live anywhere;
+# BIZON_REPO overrides it when the script is invoked from outside the tree.
+SELF="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO="${BIZON_REPO:-$(dirname "$SELF")}"
+COMPOSE="$REPO/docker/docker-compose-x86.yml"
+SERVICE="bizon_chess_player"
+ROS_SETUP="/opt/ros/humble/setup.bash"
+WS="ros_env"
+LOGDIR="${BIZON_LOGDIR:-$HOME/.cache/bizon-build}"
+LAST="$LOGDIR/last.log"
+
+mkdir -p "$LOGDIR"
+
+case "${1:-}" in
+  --log)
+    echo "$LAST"
+    exit 0
+    ;;
+  --explain)
+    if [ ! -s "$LAST" ]; then
+      echo "no log at $LAST — run a build first" >&2
+      exit 1
+    fi
+    if ! command -v ask_local >/dev/null 2>&1; then
+      echo "ask_local not found; read $LAST yourself" >&2
+      exit 1
+    fi
+    # Feed only the tail: the root cause of a colcon failure is near the end.
+    tail -n 400 "$LAST" | ask_local -r medium \
+      "This is the tail of a failed ROS 2 colcon build log. Name the single root
+       cause, the file and line it points at, and the minimal fix. If several
+       packages failed, treat the first failure as the cause and say so. Be
+       specific and quote the decisive log line."
+    exit $?
+    ;;
+esac
+
+MODE="build"
+if [ "${1:-}" = "--test" ]; then
+  MODE="test"
+  shift
+fi
+
+# Reuse a running container when there is one; starting a fresh one costs
+# seconds and loses the ccache warmth of the running instance.
+if docker compose -f "$COMPOSE" ps --status running --quiet "$SERVICE" 2>/dev/null | grep -q .; then
+  RUNNER=(docker compose -f "$COMPOSE" exec -T "$SERVICE")
+else
+  RUNNER=(docker compose -f "$COMPOSE" run --rm -T "$SERVICE")
+fi
+
+if [ "$MODE" = "test" ]; then
+  INNER="source $ROS_SETUP && cd $WS && colcon test $* && colcon test-result --verbose"
+else
+  INNER="source $ROS_SETUP && cd $WS && colcon build $*"
+fi
+
+START=$(date +%s)
+"${RUNNER[@]}" bash -lc "$INNER" > "$LAST" 2>&1
+RC=$?
+ELAPSED=$(( $(date +%s) - START ))
+
+WARNINGS=$(grep -cE "warning:" "$LAST")
+
+if [ $RC -eq 0 ]; then
+  if [ "$MODE" = "test" ]; then
+    # colcon test-result prints a final summary line; that line is the answer.
+    SUMMARY=$(grep -E "^Summary:" "$LAST" | tail -1)
+    echo "TESTS PASSED in ${ELAPSED}s — ${SUMMARY:-no summary line}"
+  else
+    PKGS=$(grep -cE "^Finished <<<" "$LAST")
+    echo "BUILD OK in ${ELAPSED}s — $PKGS packages, $WARNINGS warnings"
+  fi
+  echo "full log: $LAST"
+  exit 0
+fi
+
+echo "=== ${MODE^^} FAILED (exit $RC) after ${ELAPSED}s"
+
+FAILED=$(grep -E "^Failed   <<<|^--- stderr:" "$LAST" | sed 's/^--- stderr: //' | sort -u)
+[ -n "$FAILED" ] && { echo "--- failing packages:"; echo "$FAILED"; }
+
+echo "--- first errors:"
+grep -nE "error:|CMake Error|FAILED:|Traceback|AssertionError|undefined reference" "$LAST" \
+  | head -25 || echo "(no recognisable error lines — the failure may be in the tail)"
+
+echo "--- tail:"
+tail -n 15 "$LAST"
+
+echo
+echo "full log: $LAST   ($(wc -l < "$LAST") lines)"
+echo "run 'rosbuild --explain' to have the local model pin the root cause"
+exit $RC
