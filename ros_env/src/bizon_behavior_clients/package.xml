@@ -10,10 +10,13 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>behaviortree_cpp</build_depend>
   <build_depend>bizon_util</build_depend>
+  <build_depend>bizon_msgs</build_depend>
 
   <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>libopencv-dev</depend>
+
+  <exec_depend>bizon_msgs</exec_depend>
 
   <exec_depend>behaviortree_cpp</exec_depend>
   <test_depend>ament_lint_auto</test_depend>

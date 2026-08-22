@@ -29,6 +29,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(moveit_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(bizon_util REQUIRED)
+find_package(bizon_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 
@@ -42,6 +43,7 @@ set(dependencies
   moveit_msgs
   moveit_ros_planning_interface
   bizon_util
+  bizon_msgs
   cv_bridge
 )
 
@@ -112,6 +114,11 @@ if(BUILD_TESTING)
   ament_add_gtest(test_arm_action_client_node test/test_arm_action_client_node.cpp)
   target_link_libraries(test_arm_action_client_node arm_action_client_node)
   ament_target_dependencies(test_arm_action_client_node ${dependencies})
+
+  # Pure header-only FEN helpers: no ROS node, no Stockfish subprocess, no
+  # behavior tree. Links nothing beyond gtest.
+  ament_add_gtest(test_fen_utils test/test_fen_utils.cpp)
+  target_include_directories(test_fen_utils PRIVATE include)
 
   # Structural guard only: parses the shipped chess_game.xml with tinyxml2 and
   # walks the DOM directly, without building a BT::Tree (which would require a
