@@ -63,11 +63,9 @@ and a handful of files have unparsed line ranges where grep is the honest tool.
 
 ## Looking things up
 
-- ROS 2, MoveIt, BehaviorTree.CPP, and launch APIs: use the context7 MCP. These APIs move
-  faster than model training data.
-- CUDA and TensorRT: use the nvidia-cuda-docs MCP. Engine building here is version- and
-  geometry-sensitive; `CellClassifier`'s constructor arguments must mirror the weights
-  file, not be tuned by hand.
+For CUDA and TensorRT, use the nvidia-cuda-docs MCP. Engine building here is version- and
+geometry-sensitive; `CellClassifier`'s constructor arguments must mirror the weights file,
+not be tuned by hand.
 
 ## Conventions
 
