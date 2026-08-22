@@ -53,6 +53,10 @@ namespace bizon_behavior_clients
         std::vector<std::string> possible_next_moves_from_valid_fen_(const std::string &fen);
         std::string apply_move_to_fen(const std::string &base_fen, const std::string &move);
         std::string who_is_owner_of_move();
+        // Commits fen_pending_ to the history file if the camera agrees with it,
+        // either directly or one ply on. Returns true when the history was
+        // advanced, in which case fen_from_text_ has been refreshed.
+        bool confirm_pending_against_camera();
         std::string get_move_type(const std::string &fen, const std::string &move);
         std::string get_best_move(const std::string &fen);
         bool write_to_text_file(const std::string &fen);
@@ -109,6 +113,19 @@ namespace bizon_behavior_clients
         const float limit_l1_down_ = 0.155f; // todo: make this configurable
         const float limit_l1_up_ = 0.08f; // todo: make this configurable
         std::string fen_desired_ = "";
+
+        // The position we expect the board to be in once the move we just handed
+        // to the tree has actually been executed. Set when the move is decided,
+        // cleared the moment the camera either confirms it or contradicts it.
+        //
+        // Nothing else writes our own move into the history file: the node is a
+        // SyncActionNode that decides and returns, so it never learns whether the
+        // arm succeeded. Writing this optimistically at decision time would put
+        // the file *ahead* of the board, and the recovery ladder only ever
+        // searches forward from the file -- an ahead-of-reality file can never be
+        // reconciled and the game deadlocks. So it is held here in memory and
+        // committed only against camera evidence on the next tick.
+        std::string fen_pending_ = "";
 
         int count_saved_promotion_pieces_ = 2;
         int count_promotion_ = 0;

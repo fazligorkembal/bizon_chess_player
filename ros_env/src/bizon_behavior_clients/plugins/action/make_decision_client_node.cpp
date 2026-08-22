@@ -1,4 +1,5 @@
 #include "bizon_behavior_clients/plugins/action/make_decision_client_node.hpp"
+#include "bizon_behavior_clients/plugins/action/fen_utils.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include <filesystem>
 #include <fstream>
@@ -25,10 +26,15 @@ namespace bizon_behavior_clients
             }
             return result;
         };
-        RCLCPP_ERROR(rclcpp::get_logger("MakeDecisionNode"),
+        // DEBUG, not ERROR: this runs once per candidate inside the recovery
+        // ladder's search loops, so at ERROR it floods the console with what is
+        // ordinary search progress and buries the real failures.
+        const std::string masked_camera = replace_letters(fen_camera);
+        const std::string masked_text = replace_letters(fen_text);
+        RCLCPP_DEBUG(rclcpp::get_logger("MakeDecisionNode"),
                      "Comparing FENs without classes. Camera FEN: %s, Text FEN: %s, After replacement Camera FEN: %s, After replacement Text FEN: %s",
-                     fen_camera.c_str(), fen_text.c_str(), replace_letters(fen_camera).c_str(), replace_letters(fen_text).c_str());
-        return replace_letters(fen_camera) == replace_letters(fen_text);
+                     fen_camera.c_str(), fen_text.c_str(), masked_camera.c_str(), masked_text.c_str());
+        return masked_camera == masked_text;
     }
 
     inline std::string get_move_owner_from_text(const std::string &fen)
@@ -227,10 +233,19 @@ namespace bizon_behavior_clients
         }
         else if (move_owner_detected_ != player_side_)
         {
-
+            // It is the opponent's turn. That is the normal steady state, not a
+            // fault: against a human it can hold for minutes. Reporting FAILURE
+            // here put the fault inside RecoveryNode's work branch, so three
+            // waiting ticks exhausted the retries and the tree gave up mid-game.
+            // Report success with move_type "wait" instead; the tree's
+            // MoveOrWaitForOpponent guard skips the move subtree, the loop comes
+            // back round, and the board is read again.
+            move_type_ = "wait";
+            setOutput("move_type", move_type_);
+            setOutput("move_count", 0);
             RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
                         "Opponent move detected. Current owner: %s. Waiting", move_owner_detected_.c_str());
-            return BT::NodeStatus::FAILURE;
+            return BT::NodeStatus::SUCCESS;
         }
 
         fen_validated_ = get_last_move_from_text();
@@ -540,6 +555,11 @@ namespace bizon_behavior_clients
 
         fen_desired_ = apply_move_to_fen(fen_validated_, move_best_);
 
+        // Remember, but do not write, where this move should leave the board. The
+        // next tick commits it to the history file only if the camera agrees --
+        // see the comment on fen_pending_ for why writing it here would be wrong.
+        fen_pending_ = fen_desired_;
+
         setOutput("hand_close_position", std::vector<double>{gap_eef_close_, gap_eef_close_, gap_eef_close_});
         setOutput("hand_open_position", std::vector<double>{gap_eef_open_, gap_eef_open_, gap_eef_open_});
         setOutput("move_type", move_type_);
@@ -562,6 +582,55 @@ namespace bizon_behavior_clients
         return BT::NodeStatus::SUCCESS;
     }
 
+    bool MakeDecisionNode::confirm_pending_against_camera()
+    {
+        if (fen_pending_.empty())
+            return false;
+
+        const std::string pending_board = fen_pending_.substr(0, fen_pending_.find(' '));
+
+        // The board is exactly where our move should have left it: the move was
+        // executed and the opponent has not replied yet.
+        if (pending_board == fen_from_camera_)
+        {
+            write_to_text_file(fen_pending_);
+            fen_from_text_ = fen_pending_;
+            fen_from_text_only_board_ = pending_board;
+            RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
+                        "Own move confirmed by camera. History advanced to: %s", fen_pending_.c_str());
+            fen_pending_.clear();
+            return true;
+        }
+
+        // Our move was executed and the opponent has already replied. Both plies
+        // belong in the history, oldest first.
+        for (const auto &reply_fen : possible_next_moves_from_valid_fen_(fen_pending_))
+        {
+            if (reply_fen.substr(0, reply_fen.find(' ')) == fen_from_camera_)
+            {
+                write_to_text_file(fen_pending_);
+                write_to_text_file(reply_fen);
+                fen_from_text_ = reply_fen;
+                fen_from_text_only_board_ = fen_from_camera_;
+                RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
+                            "Own move confirmed by camera and the opponent has replied. History advanced to: %s",
+                            reply_fen.c_str());
+                fen_pending_.clear();
+                return true;
+            }
+        }
+
+        // The board does not show what we planned: the move was never executed,
+        // it was executed wrongly, or perception is off. The camera is the
+        // authority, so drop the expectation and let the ladder below reconcile
+        // from the last position the file is sure about.
+        RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
+                    "Pending move is not on the board (pending: %s, camera: %s). Discarding it and reconciling from the history file.",
+                    fen_pending_.c_str(), fen_from_camera_.c_str());
+        fen_pending_.clear();
+        return false;
+    }
+
     std::string MakeDecisionNode::who_is_owner_of_move()
     {
         std::string owner = "";
@@ -576,6 +645,11 @@ namespace bizon_behavior_clients
         }
         fen_from_text_only_board_ = fen_from_text_.substr(0, fen_from_text_.find(' '));
 
+        // Commit our own last move to the history first, if the camera backs it
+        // up. Without this the file never advances on its own and every single
+        // tick has to rediscover the position through the search ladder below.
+        confirm_pending_against_camera();
+
         RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
                     "Camera FEN: %s", fen_from_camera_.c_str());
         RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
@@ -583,7 +657,7 @@ namespace bizon_behavior_clients
 
         if (fen_from_camera_ == fen_from_text_only_board_)
         {
-            owner = (get_move_owner_from_text(fen_from_text_) == "w") ? "white" : "black";
+            owner = side_to_move(fen_from_text_);
             if (owner == player_side_)
             {
                 RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
@@ -604,7 +678,7 @@ namespace bizon_behavior_clients
             {
                 RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
                             "FENs match when ignoring piece classes. Possible OCR misclassification.");
-                owner = (get_move_owner_from_text(fen_from_text_) == "w") ? "white" : "black";
+                owner = side_to_move(fen_from_text_);
                 RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
                             "Move owner detected from bitmask: %s", owner.c_str());
             }
@@ -619,7 +693,7 @@ namespace bizon_behavior_clients
                     possible_next_fen_only_board = possible_fen.substr(0, possible_fen.find(' '));
                     if (possible_next_fen_only_board == fen_from_camera_)
                     {
-                        owner = (get_move_owner_from_text(fen_from_text_) == "w") ? "black" : "white";
+                        owner = side_to_move(possible_fen);
                         RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
                                     "Move owner detected from possible next moves. Current owner: %s. Fen: %s", owner.c_str(), possible_fen.c_str());
                         if (owner != player_side_)
@@ -640,135 +714,108 @@ namespace bizon_behavior_clients
                     }
                 }
 
-                if (owner.empty())
-                {
-                    RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                "Not found moves in possible next moves. Try to find owner with possible next moves with ignoring piece classes.");
-                    for (const auto &possible_fen : possible_next_fens)
-                    {
-                        possible_next_fen_only_board = possible_fen.substr(0, possible_fen.find(' '));
-                        if (compare_fens_without_classes(possible_next_fen_only_board, fen_from_camera_))
-                        {
-                            owner = (get_move_owner_from_text(fen_from_text_) == "w") ? "black" : "white";
-                            RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                        "Move owner detected from possible next moves with ignoring piece classes. Current owner: %s. Fen: %s", owner.c_str(), possible_fen.c_str());
-                            if (owner != player_side_)
-                            {
-                                RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                            "Last move from robot not saved to text file. After possible fen checking with ignoring piece classes, the valid fen saved in text file.");
-                                RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                            "Self move detected. Current owner: %s. Waiting for next tick to make move", owner.c_str());
-                            }
-                            else
-                            {
-                                RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                            "Opponent move detected. Current owner: %s. Move will be made", owner.c_str());
-                            }
-                            write_to_text_file(possible_fen);
-                            break;
-                        }
-                    }
-                }
+                // Ladder order matters: an exact match at any depth is stronger
+                // evidence than a class-insensitive match at depth one. Trying
+                // depth-1 fuzzy first let a single misclassified piece outrank a
+                // position the engine can reproduce exactly, and it ran a compare
+                // against every legal move on the way there.
+                std::vector<std::string> possible_next_fens_second;
+                std::string possible_next_fen_only_board_second = "";
 
                 if (owner.empty())
                 {
-                    std::vector<std::string> possible_next_fens_second;
-                    possible_next_fen_only_board = "";
-                    std::string possible_next_fen_only_board_second = "";
+                    RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
+                                "No first degree match. Checking second degree possible next moves...");
                     for (const auto &possible_fen : possible_next_fens)
                     {
-
                         possible_next_fens_second = possible_next_moves_from_valid_fen_(possible_fen);
                         for (const auto &possible_fen_second : possible_next_fens_second)
                         {
                             if (possible_fen_second.substr(0, possible_fen_second.find(' ')) == fen_from_camera_)
                             {
-                                RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                            "Move owner detected from second degree possible next moves of possible next moves. Current owner: %s. Fen: %s", owner.c_str(), possible_fen_second.c_str());
-
-                                owner = (get_move_owner_from_text(possible_fen) == "w") ? "black" : "white";
-                                if (owner == player_side_)
-                                {
-                                    RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                                "Move owner detected from second degree possible next moves of possible next moves: %s (same as player side). move will be made", owner.c_str());
-                                }
-                                else
-                                {
-                                    RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                                "Move owner detected from second degree possible next moves of possible next moves: %s (opponent). waiting", owner.c_str());
-                                }
+                                // possible_fen is the intermediate position the board
+                                // passed through; possible_fen_second is what the camera
+                                // sees now. Both go into the history, but the owner is
+                                // read off the position actually on the board -- never
+                                // off a parent.
                                 write_to_text_file(possible_fen);
-
-                                owner = (get_move_owner_from_text(possible_fen_second) == "w") ? "black" : "white";
-                                if (owner == player_side_)
-                                {
-                                    RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                                "Move owner detected from second degree possible next moves of possible next moves: %s (same as player side). move will be made", owner.c_str());
-                                }
-                                else
-                                {
-                                    RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
-                                                "Move owner detected from second degree possible next moves of possible next moves: %s (opponent). waiting", owner.c_str());
-                                }
-
                                 write_to_text_file(possible_fen_second);
+
+                                owner = side_to_move(possible_fen_second);
+                                RCLCPP_INFO(rclcpp::get_logger("MakeDecisionNode"),
+                                            "Move owner detected from second degree possible next moves: %s (%s). Fen: %s",
+                                            owner.c_str(),
+                                            (owner == player_side_) ? "same as player side, move will be made"
+                                                                    : "opponent, waiting",
+                                            possible_fen_second.c_str());
                                 break;
                             }
                         }
                         if (!owner.empty())
                             break;
                     }
+                }
 
-                    if (owner.empty())
+                if (owner.empty())
+                {
+                    RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
+                                "No exact match at either depth. Falling back to first degree moves ignoring piece classes.");
+                    for (const auto &possible_fen : possible_next_fens)
                     {
-                        RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                    "Not found moves in second degree possible next moves of possible next moves. Lastly try to find owner with possible next moves with ignoring piece classes.");
-                        for (const auto &possible_fen : possible_next_fens)
+                        possible_next_fen_only_board = possible_fen.substr(0, possible_fen.find(' '));
+                        if (compare_fens_without_classes(fen_from_camera_, possible_next_fen_only_board))
                         {
-                            possible_next_fens_second = possible_next_moves_from_valid_fen_(possible_fen);
-                            for (const auto &possible_fen_second : possible_next_fens_second)
-                            {
-                                possible_next_fen_only_board_second = possible_fen_second.substr(0, possible_fen_second.find(' '));
-                                if (compare_fens_without_classes(possible_next_fen_only_board_second, fen_from_camera_))
-                                {
-                                    owner = (get_move_owner_from_text(possible_fen) == "w") ? "black" : "white";
-                                    RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                                "Move owner detected from second degree possible next moves of possible next moves with ignoring piece classes. Current owner: %s. Fen: %s", owner.c_str(), possible_fen_second.c_str());
-                                    if (owner == player_side_)
-                                    {
-                                        RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                                    "Move owner detected from second degree possible next moves of possible next moves with ignoring piece classes: %s (same as player side). move will be made", owner.c_str());
-                                    }
-                                    else
-                                    {
-                                        RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                                    "Move owner detected from second degree possible next moves of possible next moves with ignoring piece classes: %s (opponent). waiting", owner.c_str());
-                                    }
-                                    write_to_text_file(possible_fen);
-                                    owner = (get_move_owner_from_text(possible_fen_second) == "w") ? "black" : "white";
-                                    if (owner == player_side_)
-                                    {
-                                        RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                                    "Move owner detected from second degree possible next moves of possible next moves with ignoring piece classes: %s (same as player side). move will be made", owner.c_str());
-                                    }
-                                    else
-                                    {
-                                        RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
-                                                    "Move owner detected from second degree possible next moves of possible next moves with ignoring piece classes: %s (opponent). waiting", owner.c_str());
-                                    }
-                                    write_to_text_file(possible_fen_second);
-                                    break;
-                                }
-                            }
-                            if (!owner.empty())
-                                break;
+                            write_to_text_file(possible_fen);
+
+                            owner = side_to_move(possible_fen);
+                            RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
+                                        "Move owner detected from first degree possible next moves ignoring piece classes: %s (%s). Fen: %s",
+                                        owner.c_str(),
+                                        (owner == player_side_) ? "same as player side, move will be made"
+                                                                : "opponent, waiting",
+                                        possible_fen.c_str());
+                            break;
                         }
                     }
                 }
-            }
 
-            return owner;
+                if (owner.empty())
+                {
+                    RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
+                                "Still no match. Falling back to second degree possible next moves ignoring piece classes.");
+                    for (const auto &possible_fen : possible_next_fens)
+                    {
+                        possible_next_fens_second = possible_next_moves_from_valid_fen_(possible_fen);
+                        for (const auto &possible_fen_second : possible_next_fens_second)
+                        {
+                            possible_next_fen_only_board_second = possible_fen_second.substr(0, possible_fen_second.find(' '));
+                            if (compare_fens_without_classes(fen_from_camera_, possible_next_fen_only_board_second))
+                            {
+                                write_to_text_file(possible_fen);
+                                write_to_text_file(possible_fen_second);
+
+                                owner = side_to_move(possible_fen_second);
+                                RCLCPP_WARN(rclcpp::get_logger("MakeDecisionNode"),
+                                            "Move owner detected from second degree possible next moves ignoring piece classes: %s (%s). Fen: %s",
+                                            owner.c_str(),
+                                            (owner == player_side_) ? "same as player side, move will be made"
+                                                                    : "opponent, waiting",
+                                            possible_fen_second.c_str());
+                                break;
+                            }
+                        }
+                        if (!owner.empty())
+                            break;
+                    }
+                }
+            }
         }
+
+        // Every branch above only assigns to owner; the single exit is here.
+        // The exact-match branch used to fall off the end of this non-void
+        // function -- undefined behaviour that went unnoticed because the
+        // history file never advanced, so that branch was almost never taken.
+        return owner;
     }
 
     void MakeDecisionNode::send_command(const std::string &cmd)

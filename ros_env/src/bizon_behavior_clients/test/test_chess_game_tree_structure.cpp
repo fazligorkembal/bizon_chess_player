@@ -70,6 +70,27 @@ bool contains(const std::vector<std::string> & haystack, const std::string & nee
   return false;
 }
 
+/// Depth-first search for the first descendant of `root` (root included) whose
+/// tag is `tag_name` AND whose `name` attribute equals `name_attr`.
+const XMLElement * findByTagAndName(
+  const XMLElement * root, const char * tag_name, const char * name_attr)
+{
+  const char * name = root->Attribute("name");
+  if (std::string(root->Name()) == tag_name && name != nullptr &&
+    std::string(name) == name_attr)
+  {
+    return root;
+  }
+  for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
+       child = child->NextSiblingElement())
+  {
+    if (const XMLElement * found = findByTagAndName(child, tag_name, name_attr)) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace
 
 TEST(ChessGameTreeStructure, XmlParsesCleanly)
@@ -122,4 +143,55 @@ TEST(ChessGameTreeStructure, CheckGameOverIsNotInsideRecoveryNodeWorkBranch)
   collectNameAttributes(main_tree, main_tree_names);
   EXPECT_TRUE(contains(main_tree_names, "CheckGameOver"))
     << "CheckGameOver is missing from MainTree entirely";
+}
+
+// Waiting for the opponent is the normal steady state, not a fault. It used to
+// be reported as FAILURE from inside RecoveryNode's work branch, so three
+// consecutive "not my turn" ticks exhausted the retries and the tree gave up
+// mid-game -- fatal when the opponent is a human who takes their time.
+// MakeDecisionClient now reports waiting as SUCCESS with move_type "wait", and
+// the move subtree must sit behind a guard that skips it in that case;
+// otherwise Foreach would run with move_count 0 and FAIL (foreach_node.cpp
+// returns FAILURE for count <= 0), putting the fault back.
+TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
+{
+  XMLDocument doc;
+  ASSERT_EQ(doc.LoadFile(CHESS_GAME_XML_PATH), tinyxml2::XML_SUCCESS);
+
+  const XMLElement * root = doc.RootElement();
+  ASSERT_NE(root, nullptr);
+
+  const XMLElement * main_tree = nullptr;
+  for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
+       bt = bt->NextSiblingElement("BehaviorTree"))
+  {
+    const char * id = bt->Attribute("ID");
+    if (id != nullptr && std::string(id) == "MainTree") {
+      main_tree = bt;
+      break;
+    }
+  }
+  ASSERT_NE(main_tree, nullptr);
+
+  const XMLElement * guard = findByTagAndName(main_tree, "Fallback", "MoveOrWaitForOpponent");
+  ASSERT_NE(guard, nullptr)
+    << "MainTree has no <Fallback name=\"MoveOrWaitForOpponent\">: the move subtree "
+       "is unguarded, so a waiting tick would run Foreach with move_count 0 and fail.";
+
+  // First child must be the wait check, so a waiting tick short-circuits before
+  // any arm motion is planned.
+  const XMLElement * wait_check = guard->FirstChildElement();
+  ASSERT_NE(wait_check, nullptr) << "the guard has no children";
+  EXPECT_EQ(std::string(wait_check->Name()), "ConditionNode");
+  ASSERT_NE(wait_check->Attribute("param1"), nullptr);
+  ASSERT_NE(wait_check->Attribute("param2"), nullptr);
+  EXPECT_EQ(std::string(wait_check->Attribute("param1")), "{move_type}");
+  EXPECT_EQ(std::string(wait_check->Attribute("param2")), "wait")
+    << "the guard must compare move_type against the literal \"wait\" that "
+       "MakeDecisionClient writes when it is the opponent's turn";
+
+  // The move loop must live inside that guard, not beside it.
+  const XMLElement * move_loop = findByTagAndName(guard, "Foreach", "MoveLoop");
+  EXPECT_NE(move_loop, nullptr)
+    << "Foreach MoveLoop must be a descendant of the MoveOrWaitForOpponent guard";
 }
