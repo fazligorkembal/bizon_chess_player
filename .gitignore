@@ -13,4 +13,4 @@ models/
 **/*.pt
 tensorrtx/
 **/Stockfish
-last_moves.txt
+*last_moves.txt
