@@ -43,7 +43,7 @@ case "${1:-}" in
       exit 1
     fi
     # Feed only the tail: the root cause of a colcon failure is near the end.
-    tail -n 400 "$LAST" | ask_local -r medium \
+    tail -n 400 "$LAST" | ask_local -r medium -f - \
       "This is the tail of a failed ROS 2 colcon build log. Name the single root
        cause, the file and line it points at, and the minimal fix. If several
        packages failed, treat the first failure as the cause and say so. Be
