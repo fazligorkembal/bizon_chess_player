@@ -63,7 +63,11 @@ namespace bizon_behaviors
         void cameraCallback(const sensor_msgs::msg::Image::SharedPtr msg);
         std::atomic<bool> is_camera_active_{false};
         CellDetector cell_detector_{1280, 720}; // TODO: Make these parameters configurable
-        CellClassifier cell_classifier_{"/home/user/Documents/bizon_chess_player/models/yolo26n-chessboard_v2.wts", 0.50f, 1.00f, 512, "m"};
+        // Geometry must match the weights file. yolo26n is the nano variant:
+        // gd 0.50, gw 0.25, max_channels 1024 (see parse_args in tensorrt/utils.h).
+        // The medium values that used to sit here asked for a 64-channel first conv
+        // against nano weights holding 16, so engine building aborted.
+        CellClassifier cell_classifier_{"/home/user/Documents/bizon_chess_player/models/yolo26n-chessboard_v2.wts", 0.50f, 0.25f, 1024, "n"};
         std::string results_;
         int32_t empty_count_{0};
         std::atomic<bool> is_result_ready_{false};
