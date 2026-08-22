@@ -9,4 +9,9 @@
 	    <description></description>
 	  </class>
 	</library>
+	<library path="bizon_arm_behavior">
+	  <class name="bizon_behaviors/ArmPlugin" type="bizon_behaviors::ArmPlugin" base_class_type="bizon_core::Behavior">
+	    <description>MoveIt-backed arm and gripper motion</description>
+	  </class>
+	</library>
 </class_libraries>

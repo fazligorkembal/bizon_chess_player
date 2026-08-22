@@ -3,11 +3,14 @@ behavior_server:
     cycle_frequency: 20.0
     try_count: 10
 
-    behavior_plugins: ["wait_action", "board_action"]
+    behavior_plugins: ["wait_action", "board_action", "arm_action"]
     wait_action:
       plugin: "bizon_behaviors/WaitPlugin"
     board_action:
       plugin: "bizon_behaviors/BoardPlugin"
+    arm_action:
+      plugin: "bizon_behaviors/ArmPlugin"
+      planning_time: 15.0
 
 bizon_behavior_tree:
   ros__parameters:

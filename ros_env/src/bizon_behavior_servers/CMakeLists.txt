@@ -18,6 +18,8 @@ find_package(bizon_core REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(CUDA REQUIRED)
+find_package(moveit_ros_planning_interface REQUIRED)
+find_package(bizon_msgs REQUIRED)
 
 #################################################################
 include_directories(
@@ -45,12 +47,17 @@ set(dependencies
   bizon_core
   OpenCV
   cv_bridge
+  moveit_ros_planning_interface
+  bizon_msgs
 )
 
 pluginlib_export_plugin_description_file(bizon_core behavior_plugin.xml)
 
 add_library(bizon_wait_behavior SHARED plugins/wait_plugin.cpp)
 ament_target_dependencies(bizon_wait_behavior ${dependencies})
+
+add_library(bizon_arm_behavior SHARED plugins/arm_plugin.cpp)
+ament_target_dependencies(bizon_arm_behavior ${dependencies})
 
 # TensorRT source files
 set(TENSORRT_SOURCES
@@ -92,6 +99,7 @@ rclcpp_components_register_nodes(${library_name} "bizon_behavior_servers::Behavi
 install(TARGETS ${library_name}
   bizon_wait_behavior
   bizon_board_behavior
+  bizon_arm_behavior
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -126,6 +134,15 @@ if(BUILD_TESTING)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
+
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(tinyxml2_vendor REQUIRED)
+  find_package(TinyXML2 REQUIRED)
+  ament_add_gtest(test_behavior_plugin_xml test/test_behavior_plugin_xml.cpp)
+  target_link_libraries(test_behavior_plugin_xml tinyxml2::tinyxml2)
+  target_compile_definitions(test_behavior_plugin_xml PRIVATE
+    BEHAVIOR_PLUGIN_XML_PATH="${CMAKE_CURRENT_SOURCE_DIR}/behavior_plugin.xml")
+
   ament_lint_auto_find_test_dependencies()
 endif()
 
@@ -134,6 +151,7 @@ ament_export_include_directories(include)
 ament_export_libraries(${library_name}
   bizon_wait_behavior
   bizon_board_behavior
+  bizon_arm_behavior
 )
 ament_export_dependencies(${dependencies})
 ament_package()
