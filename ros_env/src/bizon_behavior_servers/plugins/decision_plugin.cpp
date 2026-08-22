@@ -844,6 +844,14 @@ std::vector<std::string> DecisionPlugin::possible_next_moves_from_valid_fen(cons
     RCLCPP_ERROR(
       node_.lock()->get_logger(), "[%s] legalMoves failed: %s", behavior_name_.c_str(),
       engine_.lastError().c_str());
+    // This is the reconciliation ladder that invariant (a)'s
+    // confirm_pending_against_camera() and who_is_owner_of_move() both run
+    // on. A stuck-but-still-alive engine would otherwise keep failing here
+    // forever: isRunning() only reports whether the process exists, not
+    // whether it is answering, so ensure_engine_running() would never
+    // restart it on its own. Force the restart explicitly, the same way
+    // handle_move() already does on a bestMove()/applyMove() failure.
+    engine_.stop();
     return fens_possible;
   }
 
@@ -856,6 +864,9 @@ std::vector<std::string> DecisionPlugin::possible_next_moves_from_valid_fen(cons
       RCLCPP_ERROR(
         node_.lock()->get_logger(), "[%s] failed to get possible FEN for move: %s",
         behavior_name_.c_str(), move.c_str());
+      // Same reasoning as above; a fresh engine on the next call is safer
+      // than one that just proved unreliable mid-ladder.
+      engine_.stop();
     }
   }
   return fens_possible;
@@ -868,6 +879,9 @@ bool DecisionPlugin::is_checkmate(const std::string & fen)
     RCLCPP_ERROR(
       node_.lock()->get_logger(), "[%s] legalMoves failed while checking for checkmate: %s",
       behavior_name_.c_str(), engine_.lastError().c_str());
+    // See the comment in possible_next_moves_from_valid_fen(): force a
+    // restart rather than let a wedged engine fail identically forever.
+    engine_.stop();
     return false;
   }
   return moves.empty();

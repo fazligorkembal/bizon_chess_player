@@ -64,3 +64,10 @@ TEST(MoveClassification, BlackKingE8ToG8WithKingsideRightsIsShortCastle)
     classifyMoveType("r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1", "e8g8"),
     "short_castle");
 }
+
+TEST(MoveClassification, BlackKingE8ToC8WithQueensideRightsIsLongCastle)
+{
+  EXPECT_EQ(
+    classifyMoveType("r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1", "e8c8"),
+    "long_castle");
+}

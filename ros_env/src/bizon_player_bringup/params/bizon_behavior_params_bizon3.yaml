@@ -32,7 +32,18 @@ behavior_server:
       robot_base_offset_x: -0.3
       link_l1: 0.29
       link_l2: 0.18
+      # Set explicitly rather than left to DecisionPlugin's
+      # /tmp/bizon_<player_side>_last_moves.txt default: there is a real,
+      # in-progress game's history on disk at this path (black_last_moves.txt,
+      # 58 lines as of 2026-08-21), and /tmp is cleared on reboot -- letting
+      # the default apply here would silently abandon it. The container
+      # mounts the repo at this path; see CLAUDE.md.
+      state_file: "/home/user/Documents/bizon_chess_player/black_last_moves.txt"
 
 bizon_behavior_tree:
   ros__parameters:
-    player_side: "white"
+    # bizon3 is the black-side robot (namespaces in use: /bizon2 white,
+    # /bizon3 black -- see the plan's Global Constraints). This was
+    # previously "white", which as of ruling 4's per-side engine strength
+    # would have given the black robot white's handicap.
+    player_side: "black"

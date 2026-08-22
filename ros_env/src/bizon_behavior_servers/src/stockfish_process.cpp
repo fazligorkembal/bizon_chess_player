@@ -8,6 +8,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <exception>
 #include <utility>
 
 namespace bizon_behaviors
@@ -196,9 +197,15 @@ bool StockfishProcess::legalMoves(
   }
 
   // Perft 1 prints one "<move>: 1" line per legal move, followed by the
-  // "Nodes searched: N" summary. N equals the number of moves printed, so an
-  // empty result here (N == 0) is exactly "no legal moves" -- checkmate or
-  // stalemate -- without needing to parse the summary count separately.
+  // "Nodes searched: N" summary line (captured as stop_line). N is
+  // supposed to equal the number of moves printed, but that is an
+  // assumption about the engine's output, not something the loop below
+  // enforces on its own -- and DecisionPlugin::is_checkmate() treats an
+  // empty moves_out as checkmate/stalemate. If a move line failed to parse
+  // for any reason, an unchecked empty result would silently look
+  // identical to a genuine mate and send the arm to sweep a king off the
+  // board. So N is parsed out of stop_line below and required to match
+  // what was actually parsed before this reports success.
   for (const auto & line : lines) {
     const size_t colon = line.find(':');
     if (colon == std::string::npos || line.rfind("Nodes searched:", 0) == 0) {
@@ -209,6 +216,24 @@ bool StockfishProcess::legalMoves(
       moves_out.push_back(move);
     }
   }
+
+  long reported_node_count = -1;
+  const size_t summary_colon = stop_line.find(':');
+  if (summary_colon != std::string::npos) {
+    try {
+      reported_node_count = std::stol(stop_line.substr(summary_colon + 1));
+    } catch (const std::exception &) {
+      reported_node_count = -1;
+    }
+  }
+
+  if (reported_node_count < 0 || static_cast<size_t>(reported_node_count) != moves_out.size()) {
+    last_error_ = "perft summary '" + stop_line + "' does not match the " +
+      std::to_string(moves_out.size()) + " move line(s) parsed";
+    moves_out.clear();
+    return false;
+  }
+
   return true;
 }
 
