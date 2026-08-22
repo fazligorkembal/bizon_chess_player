@@ -61,6 +61,56 @@ disaster the whole task exists to prevent — treat it as blocking.
 
 ---
 
+## [ ] Task 3b — the game plays past three moves
+
+Added after a plan defect found in review: `CheckGameOver` originally sat inside `RecoveryNode`'s
+work branch, so every ordinary move counted as a failure. Recovery fired after each good move and
+the tree gave up after three. The tree now separates the game loop (`KeepRunningUntilFailure` plus
+`Inverter(CheckGameOver)`) from the fault-recovery loop.
+
+Let a normal game run with no induced faults.
+
+**Pass:** moves keep playing well past the third, and **no** recovery sequence appears between
+them — no `[RecoveryNode] work branch failed` lines, no gripper-open/lift/home cycle after a
+successful move. The tree ends only when a king is captured.
+
+**Fail signal:** either a recovery sequence after every move, or the tree exiting after three
+moves. Both mean the game loop and the recovery loop are still conflated.
+
+---
+
+## [ ] Task 3c — the robot waits out the opponent instead of giving up
+
+Two defects found during the first full-pipeline run, both in the decide-and-move path:
+
+1. `who_is_owner_of_move()` read the owner off a *parent* FEN when it had already matched
+   the position the camera sees. It answered "black" for a position whose FEN says `w`, so
+   the robot believed it was the opponent's turn on its own move.
+2. "It is the opponent's turn" was reported as `FAILURE` from inside `RecoveryNode`'s work
+   branch. Three waiting ticks exhausted the retries and the tree gave up — fatal against a
+   human, who may think for minutes.
+
+Owner detection now reads the side-to-move field of the matched position
+(`side_to_move()` in `fen_utils.hpp`), and waiting reports `SUCCESS` with `move_type` `wait`,
+which the tree's `MoveOrWaitForOpponent` guard skips.
+
+Start the robot with a game already in progress: leave `<side>_last_moves.txt` in place and
+set the Isaac board to a position where it is the *opponent's* turn.
+
+**Pass:** the log repeats
+```
+[MakeDecisionNode]: Opponent move detected. Current owner: <opponent>. Waiting
+```
+indefinitely, with no `[RecoveryNode] work branch failed` line, no gripper-open/lift/home
+cycle, and no `Tree finished with: FAILURE`. The arm stays at home and plans no motion. Move
+a piece for the opponent; on the next detection the robot plays its own move and the game
+continues from that position — no reset, no file deletion.
+
+**Fail signal:** the tree exiting after three waiting ticks, recovery running while merely
+waiting, or the robot moving when the FEN says it is the opponent's turn.
+
+---
+
 ## [ ] Task 4 — arm motion runs through an action server
 
 **Plan reference:** Task 4, Step 9.

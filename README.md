@@ -44,9 +44,9 @@ Isaac Sim (physics + camera) ──► YOLO perception ──►  Board State
 - NVIDIA NGC login (for container access)
 
 > It is recommended to clone the repository under:
-> `/home/<username>/Documents/`
+> `/home/<username>/Documents/projects/`
 
-If another location is used, update the path inside `isaac_sim_start.sh`.
+If another location is used, update the project path hardcoded inside `isaac_sim_standalone.sh`.
 
 ## Pre Install
 - Install NVIDIA Isaac Sim 5.1.0 with ROS 2 container compatibility.
@@ -68,8 +68,11 @@ sudo docker-compose -f docker/docker-compose-x86.yml run bizon_chess_player bash
 # Install BehaviorTree.Cpp
 cd ros_env/src
 git clone https://github.com/BehaviorTree/BehaviorTree.CPP.git
-cd <project_root>
+
+# Build the workspace (the colcon workspace is ros_env/, not the project root)
+cd <project_root>/ros_env
 colcon build
+source install/setup.bash
 
 # Install Stockfish
 cd <project_root>
@@ -87,23 +90,43 @@ Open a new terminal:
 
 ## 🤖 Multi-Robot Control
 
-You must open three terminals per robot (six total for dual-arm operation).
+One terminal per robot (two total for dual-arm operation).
 
-Enter the container:
+Enter the container, and source the workspace in every terminal:
 ```
 sudo docker container exec -it <container_id> bash
+source ros_env/install/setup.bash
 ```
 🔹 Robot: bizon2 (White)
+```
+ros2 launch bizon_player_bringup bizon_player.launch.py prefix:=bizon2
+```
+🔹 Robot: bizon3 (Black)
+```
+ros2 launch bizon_player_bringup bizon_player.launch.py prefix:=bizon3
+```
+
+`bizon_player.launch.py` starts MoveIt and ros2_control, then `behavior_server` and the
+lifecycle manager, then the behavior tree client, waiting between each stage. It selects the
+behavior parameter file that matches `prefix`. On a slower machine, raise the waits:
+
+```
+ros2 launch bizon_player_bringup bizon_player.launch.py prefix:=bizon2 lifecycle_delay:=20.0 client_delay:=30.0
+```
+
+Both delays are measured from launch start, so `client_delay` must stay above
+`lifecycle_delay`. Run `ros2 launch bizon_player_bringup bizon_player.launch.py --show-args`
+for the full argument list.
+
+### Running the stages separately
+
+To debug one layer in isolation, the three underlying launch files still work on their own —
+three terminals per robot, started in this order:
+
 ```
 ros2 launch bizon_player_bringup bizon_player_bringup.launch.py prefix:=bizon2
 ros2 launch bizon_player_bringup bizon_lifecycle_dev.launch.py namespace:=bizon2
 ros2 run bizon_behavior_clients bizon_behavior_tree_client_main --ros-args -r __ns:=/bizon2 -p use_sim_time:=true
-```
-🔹 Robot: bizon3 (Black)
-```
-ros2 launch bizon_player_bringup bizon_player_bringup.launch.py prefix:=bizon3
-ros2 launch bizon_player_bringup bizon_lifecycle_dev.launch.py namespace:=bizon3
-ros2 run bizon_behavior_clients bizon_behavior_tree_client_main --ros-args -r __ns:=/bizon3 -p use_sim_time:=true
 ```
 
 # ⚠️ Notes
