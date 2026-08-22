@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Send a one-shot prompt to the local LM Studio server and print the reply.
+#
+# Usage:
+#   ask_local.sh [-s SYSTEM] [-m MODEL] [-t TEMP] [-n MAX_TOKENS] [-r EFFORT] [-f FILE]... [PROMPT]
+#
+# The prompt is taken from PROMPT if given, otherwise from stdin. Files passed
+# with -f are appended to the user message labelled by path; `-f -` appends stdin,
+# which is how a question and piped input are combined.
+# Exits non-zero with the server error on the stderr stream if the call fails.
+#
+# Note: reasoning models spend output tokens on a hidden reasoning channel before
+# emitting any content, so too small an -n returns nothing at all. gpt-oss needs a
+# few hundred; qwen3.5-9b has been measured spending 3300 reasoning tokens on a
+# 78-line header, so the default is 8192 and this script fails loudly rather than
+# passing the raw reasoning off as an answer.
+# Reasoning effort defaults to medium, because a wrong answer costs more than a
+# slow one here. Drop to -r low for purely mechanical work (reformatting,
+# extraction) where it cuts generated tokens roughly threefold; raise to -r high
+# when the task genuinely needs the model to think.
+
+set -uo pipefail
+
+HOST="${LM_HOST:-http://localhost:1234}"
+MODEL="${LM_MODEL:-qwen/qwen3-coder-30b}"
+SYSTEM="You are a precise assistant. Answer with the requested output only, no preamble."
+TEMP=0.2
+MAX_TOKENS=8192
+EFFORT="${LM_EFFORT:-medium}"
+TIMEOUT="${LM_TIMEOUT:-600}"
+FILES=()
+
+while getopts ":s:m:t:n:r:f:" opt; do
+  case "$opt" in
+    s) SYSTEM="$OPTARG" ;;
+    m) MODEL="$OPTARG" ;;
+    t) TEMP="$OPTARG" ;;
+    n) MAX_TOKENS="$OPTARG" ;;
+    r) EFFORT="$OPTARG" ;;
+    f) FILES+=("$OPTARG") ;;
+    \?) echo "unknown option: -$OPTARG" >&2; exit 2 ;;
+    :) echo "option -$OPTARG needs a value" >&2; exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# With arguments, the prompt is the arguments and stdin is never read: a
+# non-interactive shell can hand this script an open pipe that no one ever writes
+# to, and blindly reading it hangs the call forever. To combine a question with
+# piped input, ask for stdin explicitly with `-f -`.
+if [ $# -gt 0 ]; then
+  PROMPT="$*"
+else
+  PROMPT="$(cat)"
+fi
+
+if [ -z "$PROMPT" ]; then
+  echo "no prompt given (pass text as arguments or on stdin)" >&2
+  exit 2
+fi
+
+for f in "${FILES[@]:-}"; do
+  [ -z "$f" ] && continue
+  if [ "$f" = "-" ]; then
+    PROMPT="$PROMPT"$'\n\n'"$(cat)"
+    continue
+  fi
+  if [ ! -r "$f" ]; then
+    echo "cannot read file: $f" >&2
+    exit 2
+  fi
+  PROMPT="$PROMPT"$'\n\n=== '"$f"$' ===\n'"$(cat "$f")"
+done
+
+REQ=$(jq -n \
+  --arg model "$MODEL" \
+  --arg system "$SYSTEM" \
+  --arg user "$PROMPT" \
+  --argjson temp "$TEMP" \
+  --argjson max "$MAX_TOKENS" \
+  --arg effort "$EFFORT" \
+  '{model: $model,
+    temperature: $temp,
+    max_tokens: $max,
+    reasoning_effort: $effort,
+    stream: false,
+    messages: [{role: "system", content: $system},
+               {role: "user", content: $user}]}')
+
+RESP=$(curl -sS -m "$TIMEOUT" "$HOST/v1/chat/completions" \
+  -H 'Content-Type: application/json' -d "$REQ") || {
+  echo "request to $HOST failed" >&2
+  exit 1
+}
+
+if echo "$RESP" | jq -e '.error' >/dev/null 2>&1; then
+  echo "$RESP" | jq -r '.error | if type == "string" then . else .message end' >&2
+  exit 1
+fi
+
+# Never print reasoning_content as if it were the answer: on these models it is a
+# raw stream of deliberation that looks like output but is not, and passing it on
+# silently is worse than failing. An empty content field means the token budget ran
+# out inside the reasoning channel.
+OUT=$(echo "$RESP" | jq -r '.choices[0].message.content // ""')
+
+if [ -z "$OUT" ]; then
+  REASON=$(echo "$RESP" | jq -r '.choices[0].finish_reason // "unknown"')
+  RTOK=$(echo "$RESP" | jq -r '.usage.completion_tokens_details.reasoning_tokens // 0')
+  echo "no answer produced (finish_reason=$REASON, reasoning_tokens=$RTOK):" >&2
+  echo "the model spent its whole budget thinking. Raise -n above $MAX_TOKENS and retry." >&2
+  exit 1
+fi
+
+printf '%s\n' "$OUT"
