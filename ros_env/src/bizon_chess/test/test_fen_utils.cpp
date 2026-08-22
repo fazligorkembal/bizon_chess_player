@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "bizon_behavior_clients/plugins/action/fen_utils.hpp"
+#include "bizon_chess/fen_utils.hpp"
 
 // These helpers exist because who_is_owner_of_move() used bare ternaries to
 // turn a FEN's side-to-move field into an owner name, and the two cases --
@@ -12,11 +12,17 @@
 // position whose FEN says "w", the robot concluded it was the opponent's turn
 // on its own move, and the tree eventually gave up. Named functions make the
 // choice impossible to get wrong silently.
+//
+// Moved here from bizon_behavior_clients in Task 5: DecisionPlugin (in
+// bizon_behavior_servers) is now the only owner-detection caller, and
+// bizon_chess -- "pure chess board geometry and FEN logic, no ROS
+// dependencies" -- is reachable from both packages, so the helpers live here
+// once instead of being copied.
 
 namespace
 {
-using bizon_behavior_clients::side_to_move;
-using bizon_behavior_clients::side_to_move_after_one_ply;
+using bizon_chess::side_to_move;
+using bizon_chess::side_to_move_after_one_ply;
 }  // namespace
 
 TEST(FenUtils, SideToMoveReadsTheFenField)

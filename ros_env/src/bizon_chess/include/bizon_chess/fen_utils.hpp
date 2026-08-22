@@ -1,9 +1,9 @@
-#ifndef BIZON_BEHAVIOR_CLIENTS__PLUGINS__ACTION__FEN_UTILS_HPP_
-#define BIZON_BEHAVIOR_CLIENTS__PLUGINS__ACTION__FEN_UTILS_HPP_
+#ifndef BIZON_CHESS__FEN_UTILS_HPP_
+#define BIZON_CHESS__FEN_UTILS_HPP_
 
 #include <string>
 
-namespace bizon_behavior_clients
+namespace bizon_chess
 {
 
 /// The side-to-move field of a FEN ("w" or "b"), or "" if the FEN has no such
@@ -47,6 +47,6 @@ inline std::string side_to_move_after_one_ply(const std::string & fen)
   return "";
 }
 
-}  // namespace bizon_behavior_clients
+}  // namespace bizon_chess
 
-#endif  // BIZON_BEHAVIOR_CLIENTS__PLUGINS__ACTION__FEN_UTILS_HPP_
+#endif  // BIZON_CHESS__FEN_UTILS_HPP_

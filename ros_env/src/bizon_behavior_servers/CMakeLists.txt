@@ -20,6 +20,7 @@ find_package(cv_bridge REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(bizon_msgs REQUIRED)
+find_package(bizon_chess REQUIRED)
 
 #################################################################
 include_directories(
@@ -49,6 +50,7 @@ set(dependencies
   cv_bridge
   moveit_ros_planning_interface
   bizon_msgs
+  bizon_chess
 )
 
 pluginlib_export_plugin_description_file(bizon_core behavior_plugin.xml)
@@ -58,6 +60,9 @@ ament_target_dependencies(bizon_wait_behavior ${dependencies})
 
 add_library(bizon_arm_behavior SHARED plugins/arm_plugin.cpp)
 ament_target_dependencies(bizon_arm_behavior ${dependencies})
+
+add_library(bizon_decision_behavior SHARED plugins/decision_plugin.cpp src/stockfish_process.cpp)
+ament_target_dependencies(bizon_decision_behavior ${dependencies})
 
 # TensorRT source files
 set(TENSORRT_SOURCES
@@ -100,6 +105,7 @@ install(TARGETS ${library_name}
   bizon_wait_behavior
   bizon_board_behavior
   bizon_arm_behavior
+  bizon_decision_behavior
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -143,6 +149,16 @@ if(BUILD_TESTING)
   target_compile_definitions(test_behavior_plugin_xml PRIVATE
     BEHAVIOR_PLUGIN_XML_PATH="${CMAKE_CURRENT_SOURCE_DIR}/behavior_plugin.xml")
 
+  ament_add_gtest(test_stockfish_process test/test_stockfish_process.cpp src/stockfish_process.cpp)
+  target_include_directories(test_stockfish_process PRIVATE include)
+  # The `stockfish` binary this test execlp()s is built by the README's
+  # install step into Stockfish/src at the repo root, never onto PATH (there
+  # is no system-wide install step). The container mounts the repo at this
+  # fixed path (see CLAUDE.md), so prepend it just for this test binary
+  # rather than requiring every dev/CI shell to export PATH itself.
+  set_tests_properties(test_stockfish_process PROPERTIES
+    ENVIRONMENT "PATH=/home/user/Documents/bizon_chess_player/Stockfish/src:$ENV{PATH}")
+
   ament_lint_auto_find_test_dependencies()
 endif()
 
@@ -152,6 +168,7 @@ ament_export_libraries(${library_name}
   bizon_wait_behavior
   bizon_board_behavior
   bizon_arm_behavior
+  bizon_decision_behavior
 )
 ament_export_dependencies(${dependencies})
 ament_package()

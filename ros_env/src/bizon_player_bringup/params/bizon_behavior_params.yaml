@@ -3,7 +3,7 @@ behavior_server:
     cycle_frequency: 20.0
     try_count: 10
 
-    behavior_plugins: ["wait_action", "board_action", "arm_action"]
+    behavior_plugins: ["wait_action", "board_action", "arm_action", "decision_action"]
     wait_action:
       plugin: "bizon_behaviors/WaitPlugin"
     board_action:
@@ -11,4 +11,14 @@ behavior_server:
     arm_action:
       plugin: "bizon_behaviors/ArmPlugin"
       planning_time: 15.0
+    decision_action:
+      plugin: "bizon_behaviors/DecisionPlugin"
+      search_depth: 10
+      search_timeout: 10.0
+      engine_threads: 1
+      engine_hash_mb: 16
+      box_size: 0.03718857142
+      robot_base_offset_x: -0.3
+      link_l1: 0.29
+      link_l2: 0.18
 

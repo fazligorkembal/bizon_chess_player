@@ -1,0 +1,26 @@
+#goal definition
+string fen
+string player_side
+---
+#result definition
+string move_type
+int32 move_count
+float64[] move_from1
+float64[] move_from_down1
+float64[] move_to1
+float64[] move_to_down1
+float64[] move_from2
+float64[] move_from_down2
+float64[] move_to2
+float64[] move_to_down2
+float64[] move_from3
+float64[] move_from_down3
+float64[] move_to3
+float64[] move_to_down3
+float64[] hand_open_position
+float64[] hand_close_position
+uint16 error_code
+builtin_interfaces/Duration total_elapsed_time
+---
+#feedback definition
+string stage

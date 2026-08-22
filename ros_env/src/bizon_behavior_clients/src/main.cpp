@@ -32,7 +32,7 @@ int main(int argc, char **argv)
         "arm_action_client_node",
         "run_until_success_node",
         "board_action_isaac_client_node",
-        "make_decision_client_node",
+        "decision_action_client_node",
         "condition_node",
         "foreach_node",
         "recovery_node"

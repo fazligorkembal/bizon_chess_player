@@ -19,6 +19,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/Wait.action"
   "action/Board.action"
   "action/Arm.action"
+  "action/Decision.action"
   "srv/ManageLifecycleNodes.srv"
 
   DEPENDENCIES std_msgs action_msgs sensor_msgs

@@ -14,4 +14,9 @@
 	    <description>MoveIt-backed arm and gripper motion</description>
 	  </class>
 	</library>
+	<library path="bizon_decision_behavior">
+	  <class name="bizon_behaviors/DecisionPlugin" type="bizon_behaviors::DecisionPlugin" base_class_type="bizon_core::Behavior">
+	    <description>Stockfish-backed move decision</description>
+	  </class>
+	</library>
 </class_libraries>

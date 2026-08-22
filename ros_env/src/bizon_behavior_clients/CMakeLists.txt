@@ -67,8 +67,8 @@ target_link_libraries(board_action_isaac_client_node ${OpenCV_LIBS})
 ament_target_dependencies(board_action_isaac_client_node ${dependencies})
 list(APPEND plugin_libs board_action_isaac_client_node)
 
-add_library(make_decision_client_node SHARED plugins/action/make_decision_client_node.cpp)
-list(APPEND plugin_libs make_decision_client_node)
+add_library(decision_action_client_node SHARED plugins/action/decision_action_client_node.cpp)
+list(APPEND plugin_libs decision_action_client_node)
 
 add_library(run_until_success_node SHARED plugins/control/run_until_success_node.cpp)
 list(APPEND plugin_libs run_until_success_node)
@@ -115,10 +115,9 @@ if(BUILD_TESTING)
   target_link_libraries(test_arm_action_client_node arm_action_client_node)
   ament_target_dependencies(test_arm_action_client_node ${dependencies})
 
-  # Pure header-only FEN helpers: no ROS node, no Stockfish subprocess, no
-  # behavior tree. Links nothing beyond gtest.
-  ament_add_gtest(test_fen_utils test/test_fen_utils.cpp)
-  target_include_directories(test_fen_utils PRIVATE include)
+  ament_add_gtest(test_decision_action_client_node test/test_decision_action_client_node.cpp)
+  target_link_libraries(test_decision_action_client_node decision_action_client_node)
+  ament_target_dependencies(test_decision_action_client_node ${dependencies})
 
   # Structural guard only: parses the shipped chess_game.xml with tinyxml2 and
   # walks the DOM directly, without building a BT::Tree (which would require a

@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 
 include_directories(include)
 
-add_library(${PROJECT_NAME} SHARED src/board_geometry.cpp)
+add_library(${PROJECT_NAME} SHARED src/board_geometry.cpp src/move_classification.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -25,6 +25,12 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_board_geometry test/test_board_geometry.cpp)
   target_link_libraries(test_board_geometry ${PROJECT_NAME})
+
+  # Header-only: no ROS node, no Stockfish subprocess, nothing beyond gtest.
+  ament_add_gtest(test_fen_utils test/test_fen_utils.cpp)
+
+  ament_add_gtest(test_move_classification test/test_move_classification.cpp)
+  target_link_libraries(test_move_classification ${PROJECT_NAME})
 endif()
 
 ament_export_include_directories(include)

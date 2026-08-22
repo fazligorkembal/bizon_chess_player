@@ -11,10 +11,12 @@
   <build_depend>bizon_util</build_depend>
   <build_depend>bizon_core</build_depend>
   <build_depend>bizon_msgs</build_depend>
+  <build_depend>bizon_chess</build_depend>
   <build_depend>cv_bridge</build_depend>
   <build_depend>moveit_ros_planning_interface</build_depend>
 
   <exec_depend>bizon_msgs</exec_depend>
+  <exec_depend>bizon_chess</exec_depend>
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
 
