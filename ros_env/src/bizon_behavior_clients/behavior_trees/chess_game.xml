@@ -87,7 +87,10 @@
                                 move_from2="{move_from2}" move_from_down2="{move_from_down2}"
                                 move_to2="{move_to2}" move_to_down2="{move_to_down2}"
                                 move_from3="{move_from3}" move_from_down3="{move_from_down3}"
-                                move_to3="{move_to3}" move_to_down3="{move_to_down3}" />
+                                move_to3="{move_to3}" move_to_down3="{move_to_down3}"
+                                box_from1="{box_from1}" box_to1="{box_to1}"
+                                box_from2="{box_from2}" box_to2="{box_to2}"
+                                box_from3="{box_from3}" box_to3="{box_to3}" />
                             <!-- Waiting for the opponent is not a fault. MakeDecisionClient
                                  reports it as SUCCESS with move_type "wait", and this guard
                                  skips the move subtree so no retry is spent and no recovery
@@ -108,8 +111,12 @@
                                         move_to2="{move_to2}" move_to_down2="{move_to_down2}"
                                         move_from3="{move_from3}" move_from_down3="{move_from_down3}"
                                         move_to3="{move_to3}" move_to_down3="{move_to_down3}"
+                                        box_from1="{box_from1}" box_to1="{box_to1}"
+                                        box_from2="{box_from2}" box_to2="{box_to2}"
+                                        box_from3="{box_from3}" box_to3="{box_to3}"
                                         move_from="{move_from}" move_from_down="{move_from_down}"
-                                        move_to="{move_to}" move_to_down="{move_to_down}">
+                                        move_to="{move_to}" move_to_down="{move_to_down}"
+                                        box_from="{box_from}" box_to="{box_to}">
                                         <SubTree ID="MoveSequence" _autoremap="true"/>
                                     </Foreach>
                                     <ArmActionClient player_side="{player_side}"
@@ -148,24 +155,41 @@
         </Sequence>
     </BehaviorTree>
 
+    <!-- board_fen refreshes the planning scene's collision objects before every
+         goal (Task 7 / F6). target_square is set on both calls at each "down"
+         joint target (move_from_down: steps 2 and 3; move_to_down: steps 6 and
+         7), not only the first of the pair, because the arm's actual current
+         joint state, not just the goal it is heading to, is what MoveIt checks
+         for collision at plan time. Step 3 starts already at move_from_down
+         (step 2 left it there) and step 7 starts already at move_to_down (step
+         6 left it there); without target_square on the second call too, the
+         freshly-rebuilt collision object at that same square would leave the
+         arm's own current position in collision and planning would refuse to
+         even start. The "up" steps (1, 4, 5, 8) never need this: move_from and
+         move_to are the clearance height, above a piece-height cylinder, not
+         level with it. -->
     <BehaviorTree ID="MoveSequence">
         <Sequence name="MoveSequence">
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_from}"
-                target_hand_position="{hand_open_position}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_from_down}"
-                target_hand_position="{hand_open_position}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}"
+                target_square="{box_from}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_from_down}"
-                target_hand_position="{hand_close_position}" />
+                target_hand_position="{hand_close_position}" board_fen="{fen}"
+                target_square="{box_from}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_from}"
-                target_hand_position="{hand_close_position}" />
+                target_hand_position="{hand_close_position}" board_fen="{fen}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to}"
-                target_hand_position="{hand_close_position}" />
+                target_hand_position="{hand_close_position}" board_fen="{fen}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to_down}"
-                target_hand_position="{hand_close_position}" />
+                target_hand_position="{hand_close_position}" board_fen="{fen}"
+                target_square="{box_to}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to_down}"
-                target_hand_position="{hand_open_position}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}"
+                target_square="{box_to}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to}"
-                target_hand_position="{hand_open_position}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}" />
         </Sequence>
     </BehaviorTree>
 </root>
