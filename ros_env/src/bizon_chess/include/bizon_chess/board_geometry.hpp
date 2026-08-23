@@ -16,9 +16,11 @@ bool squareToWorld(const std::string & square, const RobotParams & p, double & x
 /// white's across both axes (it is bolted to the opposite edge of the same
 /// board), so X is negated before the same offset is subtracted and Y is
 /// negated outright. Selected by RobotParams::mirrored so this one function
-/// is the single place either convention is applied -- see the ADR entry
-/// this task closes (F6) for why a second, drifting copy of this arithmetic
-/// in a robot-specific plugin was worse than no planning scene at all.
+/// is the single place either convention is applied, shared by DecisionPlugin
+/// (arm/gripper motion targets) and ArmPlugin (planning-scene collision
+/// objects, Task 7 / F6) -- a second, drifting copy of this arithmetic in a
+/// robot-specific plugin would place every object on the wrong square for a
+/// black-side robot, worse than no planning scene at all.
 void mirrorForRobotSide(const RobotParams & p, double & x, double & y);
 
 /// squareToWorld() followed by mirrorForRobotSide(): the composition every
