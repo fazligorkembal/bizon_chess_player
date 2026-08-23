@@ -5,6 +5,10 @@ automated session: each needs a live Isaac Sim GUI plus a person watching for a 
 outcome. Everything else in each task (code, unit tests, compile verification) is verified
 before the task is marked complete.
 
+Items 2, 3, 3b, 3c and 4 were run in Isaac Sim on 2026-08-23 and all passed — a full game
+played through to the end. Task 6 and Task 7 remain unrun because neither feature is
+implemented yet.
+
 Run these when Isaac Sim is up. Each entry names the task it belongs to, what to run, and the
 exact thing to look for.
 
@@ -24,7 +28,7 @@ ros2 run bizon_behavior_clients bizon_behavior_tree_client_main --ros-args -r __
 
 ---
 
-## [ ] Task 2 — arm and gripper are serialized
+## [x] Task 2 — arm and gripper are serialized
 
 **Plan reference:** Task 2, Step 6.
 
@@ -39,7 +43,7 @@ exactly the concurrency that knocks pieces over on real hardware.
 
 ---
 
-## [ ] Task 3 — recovery releases before it retreats
+## [x] Task 3 — recovery releases before it retreats
 
 **Plan reference:** Task 3, Step 9.
 
@@ -61,7 +65,7 @@ disaster the whole task exists to prevent — treat it as blocking.
 
 ---
 
-## [ ] Task 3b — the game plays past three moves
+## [x] Task 3b — the game plays past three moves
 
 Added after a plan defect found in review: `CheckGameOver` originally sat inside `RecoveryNode`'s
 work branch, so every ordinary move counted as a failure. Recovery fired after each good move and
@@ -79,7 +83,7 @@ moves. Both mean the game loop and the recovery loop are still conflated.
 
 ---
 
-## [ ] Task 3c — the robot waits out the opponent instead of giving up
+## [x] Task 3c — the robot waits out the opponent instead of giving up
 
 Two defects found during the first full-pipeline run, both in the decide-and-move path:
 
@@ -111,7 +115,7 @@ waiting, or the robot moving when the FEN says it is the opponent's turn.
 
 ---
 
-## [ ] Task 4 — arm motion runs through an action server
+## [x] Task 4 — arm motion runs through an action server
 
 **Plan reference:** Task 4, Step 9.
 
