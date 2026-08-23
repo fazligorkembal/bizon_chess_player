@@ -10,8 +10,11 @@ picks the move, a behavior tree sequences the game, and an arm executes it.
   of the repo's ~118k lines. First-party code is the `bizon_*` packages, roughly 14k lines.
 - `Stockfish/`, `models/`, `assets/`, and the weight files (`*.pt`, `*.wts`, `*.onnx`,
   `*.engine`) are gitignored.
-- `white_last_moves.txt` / `black_last_moves.txt` are runtime state written during play.
-  Never commit them.
+- `debug/<prefix>/game_<timestamp>/` is one directory per game, chosen by `bizon_player.launch.py`'s
+  `game:=new|last` argument and gitignored wholesale. It holds `moves.txt` (the move-history
+  file, replacing the old per-side `white_last_moves.txt` / `black_last_moves.txt`),
+  `events.log`, `rosout.log`, and `errors/<NNN>_<label>_<time>/` bundles for vision/AI
+  failures. Never commit it.
 
 ## Building and testing
 

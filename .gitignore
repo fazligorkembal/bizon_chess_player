@@ -14,3 +14,4 @@ models/
 tensorrtx/
 **/Stockfish
 *last_moves.txt
+debug/
