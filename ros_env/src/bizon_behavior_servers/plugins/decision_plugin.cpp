@@ -4,9 +4,11 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "bizon_behavior_servers/debug_session_format.hpp"
 #include "bizon_chess/fen_utils.hpp"
 #include "bizon_chess/move_classification.hpp"
 #include "pluginlib/class_list_macros.hpp"
@@ -197,11 +199,25 @@ void DecisionPlugin::onConfigure()
   }
   node->get_parameter(behavior_name_ + ".limit_l1_up", robot_params_.limit_l1_up);
 
+  // Empty by default -- an explicit override still wins when set (see
+  // onRun()'s state_file_ resolution), but an empty default lets
+  // debug_session_dir decide instead of silently pointing every game at
+  // the same /tmp path. See CLAUDE.md's Layout section and the
+  // moves.txt migration this replaces.
   if (!node->has_parameter(behavior_name_ + ".state_file")) {
-    node->declare_parameter(
-      behavior_name_ + ".state_file", std::string("/tmp/bizon_<player_side>_last_moves.txt"));
+    node->declare_parameter(behavior_name_ + ".state_file", std::string(""));
   }
   node->get_parameter(behavior_name_ + ".state_file", state_file_template_);
+
+  // debug_session_dir is a top-level parameter, shared by every plugin in
+  // this process -- see BoardPlugin::onConfigure()'s identical read for why
+  // it isn't namespaced under behavior_name_.
+  if (!node->has_parameter("debug_session_dir")) {
+    node->declare_parameter("debug_session_dir", std::string(""));
+  }
+  std::string debug_session_dir;
+  node->get_parameter("debug_session_dir", debug_session_dir);
+  DebugSession::instance().configure(debug_session_dir);
 
   RCLCPP_INFO(
     node->get_logger(),
@@ -249,11 +265,24 @@ ResultStatus DecisionPlugin::onRun(const std::shared_ptr<const DecisionAction::G
   opponent_side_ = (player_side_ == "white") ? "black" : "white";
   fen_from_camera_ = command->fen;
 
-  state_file_ = state_file_template_;
-  const std::string placeholder = "<player_side>";
-  const size_t pos = state_file_.find(placeholder);
-  if (pos != std::string::npos) {
-    state_file_.replace(pos, placeholder.size(), player_side_);
+  // decision_action.state_file, when set, is an explicit override and wins
+  // outright. Otherwise the session decides: debug_session_dir's
+  // moves.txt when a session is configured (this is what makes
+  // `game:=new` mean "new game" -- a fresh session directory has no
+  // moves.txt, so the seeding code below creates one). The bare /tmp
+  // fallback only applies with neither set, e.g. a plugin exercised
+  // outside the debug-logging launch wiring.
+  if (!state_file_template_.empty()) {
+    state_file_ = state_file_template_;
+    const std::string placeholder = "<player_side>";
+    const size_t pos = state_file_.find(placeholder);
+    if (pos != std::string::npos) {
+      state_file_.replace(pos, placeholder.size(), player_side_);
+    }
+  } else if (DebugSession::instance().isConfigured()) {
+    state_file_ = DebugSession::instance().movesFilePath();
+  } else {
+    state_file_ = "/tmp/bizon_" + player_side_ + "_last_moves.txt";
   }
 
   if (!std::filesystem::exists(state_file_)) {
@@ -718,6 +747,24 @@ bool DecisionPlugin::confirm_pending_against_camera()
     "[%s] pending move is not on the board (pending: %s, camera: %s); discarding it and "
     "reconciling from the history file",
     behavior_name_.c_str(), fen_pending_.c_str(), fen_from_camera_.c_str());
+
+  {
+    std::ostringstream context;
+    context << "failed: our own pending move is not reflected on the board\n";
+    context << "pending fen: " << fen_pending_ << "\n";
+    context << "camera fen:  " << fen_from_camera_ << "\n";
+    const auto diffs = bizon_behaviors::debug_format::fenSquareDiff(fen_from_camera_, pending_board);
+    if (diffs.empty()) {
+      context << "square diff: (board fields match; only the trailing FEN fields differ)\n";
+    } else {
+      context << "square diff (" << diffs.size() << " squares):\n";
+      for (const auto & line : diffs) {
+        context << "  " << line << "\n";
+      }
+    }
+    captureFailureBundle("fen_mismatch", context.str());
+  }
+
   fen_pending_.clear();
   return false;
 }
@@ -827,6 +874,26 @@ std::string DecisionPlugin::who_is_owner_of_move()
 
   RCLCPP_ERROR(
     node->get_logger(), "[%s] no match at any depth; cannot detect move owner", behavior_name_.c_str());
+
+  {
+    std::ostringstream context;
+    context << "failed: no legal continuation from the recorded history matched the camera "
+               "(searched two plies, exact and class-insensitive)\n";
+    context << "camera fen: " << fen_from_camera_ << "\n";
+    context << "text fen:   " << fen_from_text_ << "\n";
+    const auto diffs =
+      bizon_behaviors::debug_format::fenSquareDiff(fen_from_camera_, fen_from_text_only_board_);
+    if (diffs.empty()) {
+      context << "square diff: (board fields match; only the trailing FEN fields differ)\n";
+    } else {
+      context << "square diff (" << diffs.size() << " squares):\n";
+      for (const auto & line : diffs) {
+        context << "  " << line << "\n";
+      }
+    }
+    captureFailureBundle("no_move_owner", context.str());
+  }
+
   return owner;
 }
 
@@ -940,6 +1007,24 @@ bool DecisionPlugin::write_to_text_file(const std::string & fen)
   return true;
 }
 
+void DecisionPlugin::captureFailureBundle(const std::string & label, const std::string & context_text)
+{
+  try {
+    const std::string bundle_dir = DebugSession::instance().beginErrorBundle(label);
+    if (bundle_dir.empty()) {
+      return;  // not configured, or the bundle directory could not be created
+    }
+    // context.txt before the image dump -- see the priority order in
+    // DebugSession::beginErrorBundle()'s comment.
+    DebugSession::instance().writeContext(bundle_dir, context_text);
+    DebugSession::instance().requestImageDump(bundle_dir);
+  } catch (const std::exception & ex) {
+    RCLCPP_WARN(
+      node_.lock()->get_logger(), "[%s] [debug bundle] %s capture threw: %s", behavior_name_.c_str(),
+      label.c_str(), ex.what());
+  }
+}
+
 void DecisionPlugin::reset_values()
 {
   fen_from_text_.clear();
@@ -971,6 +1056,13 @@ void DecisionPlugin::onActionCompletion(std::shared_ptr<DecisionAction::Result> 
   result->move_from_down3 = move_from_down3_;
   result->move_to3 = move_to3_;
   result->move_to_down3 = move_to_down3_;
+
+  DebugSession::instance().logEvent(
+    "decision",
+    "move_type=" + (move_type_.empty() ? std::string("-") : move_type_) +
+    " move=" + (move_best_.empty() ? std::string("-") : move_best_) +
+    " move_count=" + std::to_string(move_count_) +
+    " error_code=" + std::to_string(result->error_code));
 }
 
 }  // namespace bizon_behaviors

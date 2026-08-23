@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "bizon_behavior_servers/debug_session.hpp"
 #include "bizon_behavior_servers/stockfish_process.hpp"
 #include "bizon_behavior_servers/timed_behavior.hpp"
 #include "bizon_chess/board_geometry.hpp"
@@ -62,6 +63,14 @@ private:
   bool is_checkmate(const std::string & fen);
   bool get_best_move(const std::string & fen, std::string & move_out);
   void reset_values();
+
+  // DecisionPlugin has no images of its own -- see debug_session.hpp's
+  // class comment on the cross-plugin seam. This opens an error bundle via
+  // DebugSession, writes context_text (already including the square-level
+  // diff, when the caller has both FENs) as context.txt, and asks
+  // BoardPlugin's registered callback to fill in the images. Best-effort:
+  // never throws, and a failure here never fails the goal.
+  void captureFailureBundle(const std::string & label, const std::string & context_text);
 
   // ---- onCycleUpdate's three top-level branches, split out of one
   // function only for readability; each returns the terminal ResultStatus

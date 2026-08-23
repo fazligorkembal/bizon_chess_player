@@ -36,6 +36,7 @@ public:
 
   ResultStatus onRun(const std::shared_ptr<const ArmAction::Goal> command) override;
   ResultStatus onCycleUpdate() override;
+  void onActionCompletion(std::shared_ptr<ArmAction::Result> result) override;
 
 private:
   enum class Phase
@@ -62,6 +63,10 @@ private:
   Phase phase_{Phase::ARM_MOVING};
   std::vector<double> target_hand_position_;
   double planning_time_{15.0};
+  // Set in onRun(), read back in onActionCompletion() for events.log --
+  // the goal itself is gone by the time onActionCompletion() runs (see
+  // TimedBehavior::execute()).
+  bool hand_only_{false};
 };
 }  // namespace bizon_behaviors
 

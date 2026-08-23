@@ -66,6 +66,7 @@ ResultStatus ArmPlugin::onRun(const std::shared_ptr<const ArmAction::Goal> comma
   }
 
   target_hand_position_ = command->target_hand_position;
+  hand_only_ = command->hand_only;
 
   if (command->hand_only) {
     // The recovery subtree's first step must open the gripper to release a
@@ -136,6 +137,13 @@ ResultStatus ArmPlugin::onCycleUpdate()
   }
 
   return ResultStatus{Status::SUCCEEDED, 0};
+}
+
+void ArmPlugin::onActionCompletion(std::shared_ptr<ArmAction::Result> result)
+{
+  DebugSession::instance().logEvent(
+    "arm", "hand_only=" + std::string(hand_only_ ? "true" : "false") +
+    " error_code=" + std::to_string(result->error_code));
 }
 
 }  // namespace bizon_behaviors

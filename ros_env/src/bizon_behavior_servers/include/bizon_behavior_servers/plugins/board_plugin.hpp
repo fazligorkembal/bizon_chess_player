@@ -3,15 +3,18 @@
 
 #include <atomic>
 #include <chrono>
+#include <deque>
 #include <mutex>
 #include <string>
 #include <memory>
+#include <vector>
 
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/image_encodings.hpp"
 #include "cv_bridge/cv_bridge.h"
 
 #include "bizon_behavior_servers/timed_behavior.hpp"
+#include "bizon_behavior_servers/debug_session.hpp"
 #include "bizon_msgs/action/board.hpp"
 
 #include <opencv2/opencv.hpp>
@@ -34,6 +37,14 @@ namespace bizon_behaviors
          */
         BoardPlugin();
         ~BoardPlugin();
+
+        /**
+         * @brief Reads debug_session_dir and registers this plugin's image
+         * dump callback with DebugSession -- see the header comment on
+         * writeImageArtifacts() for why BoardPlugin is the one that has to
+         * register it.
+         */
+        void onConfigure() override;
 
         /**
          * @brief Initialization to run behavior
@@ -73,6 +84,49 @@ namespace bizon_behaviors
         std::atomic<bool> is_result_ready_{false};
         bool is_black_side_{false};
 
+        // ---- Error-bundle state (spec section 5). Everything below is
+        // guarded by image_mutex_, same as latest_image_ -- cameraCallback
+        // writes it, and both BoardPlugin's own board-detect-failure path
+        // and DebugSession's image-dump callback (invoked from
+        // DecisionPlugin, on a different thread/process-plugin) read it. ----
+
+        // Last kFrameRingSize whole camera frames, oldest first, dropping
+        // the oldest on push. "frame_0" in a bundle is frame_ring_.back().
+        static constexpr size_t kFrameRingSize = 3;
+        std::deque<cv::Mat> frame_ring_;
+        void pushFrame(const cv::Mat & frame);
+
+        // Snapshot of the most recent successful board read, used to fill
+        // an error bundle triggered either here (board_detect_failed, where
+        // this data is NOT available yet -- see writeImageArtifacts) or
+        // from DecisionPlugin via the registered callback (fen_mismatch,
+        // no_move_owner, where it reflects the board read that produced the
+        // mismatched camera FEN).
+        cv::Mat last_image_cropped_;
+        std::vector<cv::Rect> last_bboxes_;
+        // Cell crops and per-cell predictions in bbox/scan order (i.e.
+        // *before* the is_black_side_ reversal cameraCallback applies to
+        // build the FEN) -- see debug_format::squareForCellIndex() for how
+        // a bundle recovers each crop's actual board square from this order.
+        std::vector<cv::Mat> last_cell_images_;
+        std::vector<std::string> last_class_names_pre_reversal_;
+        std::vector<float> last_confidences_;
+        bool last_is_black_side_{false};
+        bool has_cell_data_{false};
+
+        // Registered with DebugSession in onConfigure(); also called
+        // directly (skipping the frames-only special case) for a
+        // board-detect failure. Writes, in the priority order the spec
+        // calls out (context.txt is written by the caller before this
+        // runs; images matter less than the timeline): cells_overlay.png,
+        // then cells_contact_sheet.png, then frames/. Each step is
+        // independently best-effort -- one image failing to write must
+        // never stop the rest, and must never fail the calling goal.
+        void writeImageArtifacts(const std::string & bundle_dir);
+        // Board detection itself failed, so there is no cropped image or
+        // cell data to bundle -- only the frame ring buffer and a short
+        // context.txt BoardPlugin writes itself.
+        void dumpBoardDetectFailureBundle();
     };
 }
 

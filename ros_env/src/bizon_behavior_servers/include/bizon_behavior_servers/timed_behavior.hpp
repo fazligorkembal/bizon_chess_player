@@ -13,6 +13,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "bizon_util/simple_action_server.hpp"
 #include "bizon_core/behavior.hpp"
+#include "bizon_behavior_servers/debug_session.hpp"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -199,6 +200,14 @@ void execute()
             "[%s] [TimedBehavior] onRun failed, aborting behavior",
             behavior_name_.c_str());
         result->error_code = on_run_result.error_code;
+        // Generic abort logging lives here rather than in each plugin: this
+        // is the only exit point onRun failures take, and onActionCompletion
+        // (where BoardPlugin/DecisionPlugin/ArmPlugin log their own
+        // per-behavior detail) is never called for an onRun failure -- see
+        // the loop below for the onCycleUpdate FAILED case.
+        DebugSession::instance().logEvent(
+            "abort", "behavior=" + behavior_name_ +
+            " error_code=" + std::to_string(on_run_result.error_code));
         action_server_->terminate_current(result);
         return;
     }
@@ -246,6 +255,9 @@ void execute()
                 behavior_name_.c_str());
             result->total_elapsed_time = clock_->now() - start_time;
             result->error_code = on_cycle_update_result.error_code;
+            DebugSession::instance().logEvent(
+                "abort", "behavior=" + behavior_name_ +
+                " error_code=" + std::to_string(on_cycle_update_result.error_code));
             onActionCompletion(result);
             action_server_->terminate_current(result);
             return;

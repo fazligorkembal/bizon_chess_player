@@ -1,6 +1,9 @@
 #ifndef CALL_CLASSIFIER_HPP
 #define CALL_CLASSIFIER_HPP
 
+#include <algorithm>
+#include <cmath>
+
 #include "bizon_behavior_servers/tensorrt/cuda_utils.h"
 #include "bizon_behavior_servers/tensorrt/types.h"
 #include "bizon_behavior_servers/tensorrt/utils.h"
@@ -38,7 +41,11 @@ namespace bizon_behaviors
             device_buffers_[1] = output_buffer_device_;
         }
 
-        void infer(std::vector<cv::Mat> &imgs, std::vector<std::string> &results)
+        // confidences is optional (debug-bundle cell_labels.txt is the only
+        // caller that wants it -- see the "confidence if available" line in
+        // the spec); passing nullptr skips the softmax pass entirely so the
+        // hot classification path pays nothing for it.
+        void infer(std::vector<cv::Mat> &imgs, std::vector<std::string> &results, std::vector<float> *confidences = nullptr)
         {
             batch_preprocess(imgs, input_buffer_host_, kClsInputW, kClsInputH);
             CUDA_CHECK(cudaMemcpyAsync(input_buffer_device_, input_buffer_host_, kBatchSize * 3 * kClsInputH * kClsInputW * sizeof(float), cudaMemcpyHostToDevice, stream_));
@@ -48,9 +55,15 @@ namespace bizon_behaviors
 
             for (size_t i = 0; i < kBatchSize; i++)
             {
-                int top_index = topk(std::vector<float>(output_buffer_host_ + i * kOutputSize, output_buffer_host_ + (i + 1) * kOutputSize), 1)[0];
+                std::vector<float> logits(output_buffer_host_ + i * kOutputSize, output_buffer_host_ + (i + 1) * kOutputSize);
+                int top_index = topk(logits, 1)[0];
                 std::string class_name = class_names_[top_index];
                 results.push_back(class_name);
+
+                if (confidences != nullptr)
+                {
+                    confidences->push_back(softmaxConfidence(logits, top_index));
+                }
             }
         }
 
@@ -169,6 +182,25 @@ namespace bizon_behaviors
                         "Successfully prepared GPU buffers for TensorRT engine. Input buffer size: %zu bytes, Output buffer size: %zu bytes.",
                         kBatchSize * 3 * kClsInputH * kClsInputW * sizeof(float),
                         kBatchSize * 13 * sizeof(float));
+        }
+
+        // Softmax probability of `top_index` among `logits`. Only computed
+        // when the caller asks for confidences (see infer()'s confidences
+        // parameter) -- it is extra work over raw logits the hot path
+        // doesn't otherwise need.
+        float softmaxConfidence(const std::vector<float> &logits, int top_index)
+        {
+            const float max_logit = *std::max_element(logits.begin(), logits.end());
+            float sum_exp = 0.0f;
+            for (float logit : logits)
+            {
+                sum_exp += std::exp(logit - max_logit);
+            }
+            if (sum_exp <= 0.0f)
+            {
+                return 0.0f;
+            }
+            return std::exp(logits[top_index] - max_logit) / sum_exp;
         }
 
         std::vector<int> topk(const std::vector<float> &vec, int k)
