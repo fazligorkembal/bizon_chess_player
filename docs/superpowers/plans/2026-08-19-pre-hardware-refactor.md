@@ -2017,6 +2017,19 @@ git commit -m "feat(lifecycle): parameterize managed nodes and gate the tree on 
 
 ### Task 7: Planning scene collision objects from the board state
 
+> **REJECTED BY DESIGN, 2026-08-23. Do not implement.** F6 called the empty planning
+> scene a defect. It is not: this robot is vision-driven and deliberately carries no
+> collision model of the board. A camera reports where the pieces are, the arm goes to
+> that x/y and picks. Pieces are avoided by the motion pattern — rise to the clearance
+> height, traverse, descend — which is what `MoveSequence`'s "up" waypoints exist for,
+> not by collision checking. The real robot has a gripper and an RGB webcam and nothing
+> else; there is no sensor that could keep a collision model honest.
+>
+> This was implemented once and reverted. It put 32 cylinders into the planning scene,
+> MoveIt rejected the goal states, and the game ended with `RecoveryNode` exhausting its
+> retries on the first move. The commits are kept on branch
+> `task-7-planning-scene-rejected` as a record, not as work to resume.
+
 Closes F6.
 
 **Files:**

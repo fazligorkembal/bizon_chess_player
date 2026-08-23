@@ -49,6 +49,12 @@ rules are load-bearing and easy to break by accident:
    normal steady state: it returns `SUCCESS` with `move_type` "wait", and the tree's
    `MoveOrWaitForOpponent` fallback skips the move subtree. Returning `FAILURE` there
    exhausts `RecoveryNode`'s retries and abandons the game mid-play.
+3. **The robot carries no collision model, and that is deliberate.** It is vision-driven:
+   the camera says where the pieces are, the arm goes to that x/y and picks. Pieces are
+   avoided by the motion pattern — rise to the clearance height, traverse, descend — not
+   by collision checking. The real robot has a gripper and an RGB webcam and nothing else.
+   Populating the planning scene from the board state has been tried and reverted; MoveIt
+   rejected every goal and the game ended on the first move.
 
 Also: the arm and gripper are moved in sequence, never together, because simultaneous
 motion disturbs a held piece. `hand_only` goals skip the arm entirely.
