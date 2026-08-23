@@ -95,6 +95,14 @@ namespace bizon_behaviors
         std::string pending_fen_;
         int pending_fen_count_{0};
         int fen_stable_count_{3};
+
+        // A debounce that can wait forever is a hang, not a filter. The
+        // classifier flickers by a cell now and then, so "three identical in a
+        // row" is not guaranteed to ever happen. After this many inferences in
+        // one goal we accept the latest FEN and say so, which degrades to the
+        // old single-frame behaviour instead of leaving the arm parked at home.
+        int fen_settle_attempts_{30};
+        int fen_attempts_this_goal_{0};
         bool is_black_side_{false};
 
         // ---- Error-bundle state (spec section 5). Everything below is

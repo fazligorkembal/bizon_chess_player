@@ -16,6 +16,10 @@ behavior_server:
       # before acting on it. Raise it if the arms still reach into the same
       # squares; lower it only if reads become too slow.
       fen_stable_count: 3
+      # A debounce that can wait forever is a hang. If the classifier flickers
+      # and the FEN never repeats fen_stable_count times, accept the latest one
+      # after this many inferences rather than leaving the arm parked at home.
+      fen_settle_attempts: 30
     arm_action:
       plugin: "bizon_behaviors/ArmPlugin"
       planning_time: 15.0

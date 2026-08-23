@@ -44,6 +44,14 @@ namespace bizon_behaviors
         if (fen_stable_count_ < 1) {
             fen_stable_count_ = 1;
         }
+
+        if (!node->has_parameter(behavior_name_ + ".fen_settle_attempts")) {
+            node->declare_parameter(behavior_name_ + ".fen_settle_attempts", fen_settle_attempts_);
+        }
+        node->get_parameter(behavior_name_ + ".fen_settle_attempts", fen_settle_attempts_);
+        if (fen_settle_attempts_ < fen_stable_count_) {
+            fen_settle_attempts_ = fen_stable_count_;
+        }
         DebugSession::instance().configure(debug_session_dir);
 
         // BoardPlugin is the only plugin that ever touches an image, so it
@@ -337,11 +345,34 @@ namespace bizon_behaviors
             pending_fen_count_ = 1;
         }
 
+        ++fen_attempts_this_goal_;
+
         if (pending_fen_count_ < fen_stable_count_) {
-            RCLCPP_DEBUG(
-                node_.lock()->get_logger(), "FEN not settled yet (%d/%d): '%s'",
-                pending_fen_count_, fen_stable_count_, results_.c_str());
-            return;
+            if (fen_attempts_this_goal_ < fen_settle_attempts_) {
+                // Visible in events.log, not just at DEBUG: a silent wait here
+                // looks exactly like a dead camera, and that ambiguity cost a
+                // debugging session once already.
+                if (fen_attempts_this_goal_ == 1 || fen_attempts_this_goal_ % 10 == 0) {
+                    DebugSession::instance().logEvent(
+                        "board",
+                        "settling " + std::to_string(pending_fen_count_) + "/" +
+                        std::to_string(fen_stable_count_) + " attempt=" +
+                        std::to_string(fen_attempts_this_goal_) + " fen=" + results_);
+                }
+                RCLCPP_DEBUG(
+                    node_.lock()->get_logger(), "FEN not settled yet (%d/%d): '%s'",
+                    pending_fen_count_, fen_stable_count_, results_.c_str());
+                return;
+            }
+
+            DebugSession::instance().logEvent(
+                "board",
+                "unsettled after " + std::to_string(fen_attempts_this_goal_) +
+                " attempts; accepting latest fen=" + results_);
+            RCLCPP_WARN(
+                node_.lock()->get_logger(),
+                "FEN never settled over %d inferences; accepting the latest: '%s'",
+                fen_attempts_this_goal_, results_.c_str());
         }
 
         is_result_ready_.store(true);
@@ -374,6 +405,7 @@ namespace bizon_behaviors
         is_result_ready_.store(false);
         pending_fen_.clear();
         pending_fen_count_ = 0;
+        fen_attempts_this_goal_ = 0;
         board_end_ = node_.lock()->now() + rclcpp::Duration(command->time);
         return ResultStatus{Status::SUCCEEDED};
     }
