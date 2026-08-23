@@ -17,6 +17,7 @@ raised on a slower machine.
 """
 
 import os
+import sys
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -30,6 +31,15 @@ from launch.actions import (
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+# session_dir.py has no launch/launch_ros/ROS import of its own -- see its
+# module docstring -- specifically so its resolution logic can be unit
+# tested on the host without a ROS install. Importing it via sys.path
+# (rather than as a bizon_player_bringup submodule) matches how this file
+# reaches RewrittenYaml's helpers in bizon_lifecycle_dev.launch.py: launch
+# files in this package are loaded by path, not as an installed package.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from session_dir import resolve_session_dir  # noqa: E402
 
 
 # Behavior parameters differ per robot. Picking the file from the prefix keeps
@@ -62,6 +72,16 @@ def launch_setup(context, *args, **kwargs):
     lifecycle_delay = float(LaunchConfiguration('lifecycle_delay').perform(context))
     client_delay = float(LaunchConfiguration('client_delay').perform(context))
 
+    # One folder per game (spec: "one folder per game, holding what the
+    # robot did..."). Resolved once, here, in Python at launch time -- not
+    # by any node at runtime -- so every plugin in behavior_server and the
+    # behavior tree client agree on the same directory without needing to
+    # coordinate a "who resolves it" race among themselves.
+    debug_root = LaunchConfiguration('debug_root').perform(context)
+    game = LaunchConfiguration('game').perform(context)
+    debug_session_dir = resolve_session_dir(debug_root, prefix, game)
+    print(f'\033[96mDebug session directory: {debug_session_dir}\033[0m')
+
     # MoveIt, ros2_control and robot_state_publisher. Isaac Sim must already be
     # running: ros2_control talks to its joint interfaces.
     bringup = IncludeLaunchDescription(
@@ -87,19 +107,23 @@ def launch_setup(context, *args, **kwargs):
             'autostart': autostart,
             'log_level': log_level,
             'params_file': params_file,
+            'debug_session_dir': debug_session_dir,
         }.items(),
     )
 
     # Same invocation as the README's `ros2 run` line. The behavior parameters
     # are deliberately not passed here: the client is started bare today, and
     # handing it params_file would change which side it plays.
+    # debug_session_dir is still passed explicitly (not via params_file) so
+    # the client learns the session path without needing to opt into the
+    # rest of the behavior parameters.
     behavior_tree_client = Node(
         package='bizon_behavior_clients',
         executable='bizon_behavior_tree_client_main',
         name='bizon_behavior_tree',
         namespace='/' + prefix,
         output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
+        parameters=[{'use_sim_time': use_sim_time, 'debug_session_dir': debug_session_dir}],
         arguments=['--ros-args', '--log-level', log_level],
         emulate_tty=True,
     )
@@ -156,4 +180,19 @@ def generate_launch_description():
             default_value='15.0',
             description='Seconds to wait before starting the behavior tree client. '
                         'Measured from launch start, so keep it above lifecycle_delay'),
+        DeclareLaunchArgument(
+            'game',
+            default_value='new',
+            choices=['new', 'last'],
+            description="'new' starts a fresh debug/<prefix>/game_<timestamp>/ directory; "
+                        "'last' resumes the newest existing one for this prefix (falling back "
+                        "to creating one if none exists)"),
+        DeclareLaunchArgument(
+            'debug_root',
+            # Matches the hardcoded container-mount path used elsewhere in
+            # this repo's defaults (e.g. CellClassifier's weights path,
+            # board_plugin.hpp) -- override this on the host, where the
+            # checkout lives somewhere else.
+            default_value='/home/user/Documents/bizon_chess_player',
+            description='Repo checkout root debug/ is created under; override on the host'),
     ] + [OpaqueFunction(function=launch_setup)])

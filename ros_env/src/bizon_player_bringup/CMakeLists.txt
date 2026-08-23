@@ -26,6 +26,13 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  # session_dir.py has no ROS import at all -- see its module docstring --
+  # so this test needs nothing beyond a plain python3 + pytest, run here via
+  # colcon test for convenience. It is equally runnable standalone:
+  # `python3 launch/test_session_dir.py`.
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_session_dir launch/test_session_dir.py)
 endif()
 
 ament_package()

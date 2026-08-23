@@ -26,6 +26,20 @@ int main(int argc, char **argv)
     node_options.automatically_declare_parameters_from_overrides(true);
     auto nh = std::make_shared<rclcpp::Node>("bizon_behavior_tree", node_options);
 
+    // debug_session_dir is passed down by bizon_player.launch.py alongside
+    // the same value it hands to behavior_server (see
+    // bizon_lifecycle_dev.launch.py). The client itself does not write into
+    // it today -- events.log/rosout.log are all server-side -- but the
+    // maintainer wants every process in the game agreeing on one directory,
+    // and this is where a future client-side debug artifact would look.
+    if (!nh->has_parameter("debug_session_dir")) {
+        nh->declare_parameter("debug_session_dir", std::string(""));
+    }
+    std::string debug_session_dir = nh->get_parameter("debug_session_dir").as_string();
+    if (!debug_session_dir.empty()) {
+        RCLCPP_INFO(nh->get_logger(), "Debug session directory: %s", debug_session_dir.c_str());
+    }
+
     BT::BehaviorTreeFactory factory_;
     std::vector<std::string> plugin_lib_names_ = {
         "wait_action_client_node",

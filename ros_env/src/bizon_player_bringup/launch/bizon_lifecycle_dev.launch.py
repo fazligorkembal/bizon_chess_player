@@ -292,13 +292,23 @@ def launch_setup(context, *args, **kwargs):
     #container_name = LaunchConfiguration('container_name')
     #container_name_full = (namespace, '/', container_name)
     log_level = LaunchConfiguration('log_level')
-    params_file = LaunchConfiguration('params_file')    
+    params_file = LaunchConfiguration('params_file')
+    debug_session_dir = LaunchConfiguration('debug_session_dir').perform(context)
 
     lifecycle_nodes = [
         'behavior_server',
     ]
 
-    param_substitutions = {'autostart': autostart}
+    # 'behavior_server.ros__parameters.debug_session_dir' is a dotted path
+    # into the *unwrapped* params_file (root_key namespacing happens after
+    # this substitution runs -- see RewrittenYaml.perform() below), so
+    # add_params() adds it under behavior_server's ros__parameters the same
+    # way autostart is substituted in below it, rather than at the
+    # yaml's top level where BoardPlugin/DecisionPlugin would never see it.
+    param_substitutions = {
+        'autostart': autostart,
+        'behavior_server.ros__parameters.debug_session_dir': debug_session_dir,
+    }
 
     stdout_linebuf_envvar = SetEnvironmentVariable(
         'RCUTILS_LOGGING_BUFFERED_STREAM', '1'
@@ -349,6 +359,24 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[{'autostart': autostart}, {'node_names': lifecycle_nodes}],
                 emulate_tty=True,
             ),
+            # Standalone node (not lifecycle-managed -- see
+            # rosout_logger_main.cpp's header comment), started alongside
+            # behavior_server so MoveIt/OMPL/controller WARN-and-above
+            # output lands in the same debug/ folder as everything else
+            # instead of only existing on a console nobody is reading.
+            Node(
+                package="bizon_behavior_servers",
+                executable="rosout_logger",
+                name="rosout_logger",
+                output="screen",
+                arguments=['--ros-args', '--log-level', log_level],
+                parameters=[{
+                    'use_sim_time': use_sim_time,
+                    'debug_session_dir': debug_session_dir,
+                    'namespace_prefix': namespace.perform(context),
+                }],
+                emulate_tty=True,
+            ),
         ]
     )
 
@@ -388,7 +416,14 @@ def generate_launch_description():
     declare_log_level_cmd = DeclareLaunchArgument(
         'log_level', default_value='info', description='log level'
     )
-    
+
+    declare_debug_session_dir_cmd = DeclareLaunchArgument(
+        'debug_session_dir',
+        default_value='',
+        description='Absolute path of this game\'s debug session directory, resolved by '
+                    'bizon_player.launch.py; empty disables debug logging',
+    )
+
 
     bringup_dir = get_package_share_directory('bizon_player_bringup')
     declare_params_file_cmd = DeclareLaunchArgument(
@@ -406,6 +441,7 @@ def generate_launch_description():
             #declare_container_name_cmd,
             declare_log_level_cmd,
             declare_params_file_cmd,
+            declare_debug_session_dir_cmd,
         ] + [OpaqueFunction(function=launch_setup)]
     )
     

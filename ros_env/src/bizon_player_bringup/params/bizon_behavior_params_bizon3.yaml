@@ -32,13 +32,13 @@ behavior_server:
       robot_base_offset_x: -0.3
       link_l1: 0.29
       link_l2: 0.18
-      # Set explicitly rather than left to DecisionPlugin's
-      # /tmp/bizon_<player_side>_last_moves.txt default: there is a real,
-      # in-progress game's history on disk at this path (black_last_moves.txt,
-      # 58 lines as of 2026-08-21), and /tmp is cleared on reboot -- letting
-      # the default apply here would silently abandon it. The container
-      # mounts the repo at this path; see CLAUDE.md.
-      state_file: "/home/user/Documents/bizon_chess_player/black_last_moves.txt"
+      # state_file is deliberately absent: DecisionPlugin now takes its move
+      # history from <debug_session_dir>/moves.txt, resolved once at launch
+      # by bizon_player.launch.py's `game:=new|last` argument (see
+      # CLAUDE.md). Setting state_file here would override that per-game
+      # resolution with one fixed path shared by every game -- add it back
+      # only if a robot genuinely needs to pin its history file outside the
+      # debug/ tree.
 
 bizon_behavior_tree:
   ros__parameters:
