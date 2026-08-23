@@ -247,6 +247,10 @@ ResultStatus DecisionPlugin::onRun(const std::shared_ptr<const DecisionAction::G
 
   player_side_ = command->player_side;
   opponent_side_ = (player_side_ == "white") ? "black" : "white";
+  // Drives bizon_chess::mirrorForRobotSide()/squareToWorldMirrored() -- see
+  // mirror_xy() and box_to_world_mirrored() below, which now just forward to
+  // those. Set once per goal since player_side_ is itself per-goal.
+  robot_params_.mirrored = (player_side_ != "white");
   fen_from_camera_ = command->fen;
 
   state_file_ = state_file_template_;
@@ -641,21 +645,15 @@ bool DecisionPlugin::square_to_world(const std::string & box, double & x, double
 
 void DecisionPlugin::mirror_xy(double & x, double & y) const
 {
-  if (player_side_ == "white") {
-    x -= robot_params_.robot_base_offset_x;
-  } else {
-    x = -x - robot_params_.robot_base_offset_x;
-    y = -y;
-  }
+  // See Task 7 Ruling 1: this is now the single call site for the mirroring
+  // arithmetic, in bizon_chess, shared with ArmPlugin's collision-object
+  // placement rather than a second hand-copied version of it.
+  bizon_chess::mirrorForRobotSide(robot_params_, x, y);
 }
 
 bool DecisionPlugin::box_to_world_mirrored(const std::string & box, double & x, double & y)
 {
-  if (!square_to_world(box, x, y)) {
-    return false;
-  }
-  mirror_xy(x, y);
-  return true;
+  return bizon_chess::squareToWorldMirrored(box, robot_params_, x, y);
 }
 
 bool DecisionPlugin::joint_targets_from_xy(
