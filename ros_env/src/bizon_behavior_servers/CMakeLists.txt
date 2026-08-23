@@ -21,6 +21,7 @@ find_package(CUDA REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(bizon_msgs REQUIRED)
 find_package(bizon_chess REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 
 #################################################################
 include_directories(
@@ -55,14 +56,29 @@ set(dependencies
 
 pluginlib_export_plugin_description_file(bizon_core behavior_plugin.xml)
 
+# Process-wide game-session state (events.log, moves.txt path, error
+# bundles), shared by every plugin. Deliberately its own small SHARED
+# library rather than a singleton compiled into each plugin library: the
+# four plugins below are separate .so files that pluginlib dlopen()s
+# independently, so a Meyer's singleton duplicated into each of them would
+# not actually be one object at runtime. Every plugin library links this one
+# with ordinary DT_NEEDED linkage instead, which the dynamic loader
+# deduplicates by soname regardless of dlopen() order -- see
+# debug_session.hpp's class comment for the full reasoning.
+add_library(bizon_debug_session SHARED src/debug_session.cpp)
+ament_target_dependencies(bizon_debug_session ${dependencies})
+
 add_library(bizon_wait_behavior SHARED plugins/wait_plugin.cpp)
 ament_target_dependencies(bizon_wait_behavior ${dependencies})
+target_link_libraries(bizon_wait_behavior bizon_debug_session)
 
 add_library(bizon_arm_behavior SHARED plugins/arm_plugin.cpp)
 ament_target_dependencies(bizon_arm_behavior ${dependencies})
+target_link_libraries(bizon_arm_behavior bizon_debug_session)
 
 add_library(bizon_decision_behavior SHARED plugins/decision_plugin.cpp src/stockfish_process.cpp)
 ament_target_dependencies(bizon_decision_behavior ${dependencies})
+target_link_libraries(bizon_decision_behavior bizon_debug_session)
 
 # TensorRT source files
 set(TENSORRT_SOURCES
@@ -78,6 +94,7 @@ add_library(bizon_board_behavior SHARED
 )
 ament_target_dependencies(bizon_board_behavior ${dependencies})
 target_link_libraries(bizon_board_behavior
+  bizon_debug_session
   ${OpenCV_LIBS}
   ${CUDA_LIBRARIES}
   cudart
@@ -101,7 +118,17 @@ target_link_libraries(${executable_name} ${library_name})
 ament_target_dependencies(${executable_name} ${dependencies})
 rclcpp_components_register_nodes(${library_name} "bizon_behavior_servers::BehaviorServer")
 
+# Subscribes /rosout and appends WARN-and-above messages from this robot's
+# namespace to <session>/rosout.log. A standalone rclcpp node, not a
+# behavior plugin -- it has no goal to serve and nothing else needs to
+# command it, so lifecycle-managing it alongside behavior_server would only
+# add ceremony. Launched directly by bizon_lifecycle_dev.launch.py instead.
+add_executable(rosout_logger src/rosout_logger_main.cpp)
+target_link_libraries(rosout_logger bizon_debug_session)
+ament_target_dependencies(rosout_logger rclcpp rcl_interfaces)
+
 install(TARGETS ${library_name}
+  bizon_debug_session
   bizon_wait_behavior
   bizon_board_behavior
   bizon_arm_behavior
@@ -111,7 +138,7 @@ install(TARGETS ${library_name}
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS ${executable_name} 
+install(TARGETS ${executable_name} rosout_logger
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -149,6 +176,9 @@ if(BUILD_TESTING)
   target_compile_definitions(test_behavior_plugin_xml PRIVATE
     BEHAVIOR_PLUGIN_XML_PATH="${CMAKE_CURRENT_SOURCE_DIR}/behavior_plugin.xml")
 
+  ament_add_gtest(test_debug_session_format test/test_debug_session_format.cpp)
+  target_include_directories(test_debug_session_format PRIVATE include)
+
   ament_add_gtest(test_stockfish_process test/test_stockfish_process.cpp src/stockfish_process.cpp)
   target_include_directories(test_stockfish_process PRIVATE include)
   # The `stockfish` binary this test execlp()s is built by the README's
@@ -165,6 +195,7 @@ endif()
 ament_export_include_directories(include)
 
 ament_export_libraries(${library_name}
+  bizon_debug_session
   bizon_wait_behavior
   bizon_board_behavior
   bizon_arm_behavior
