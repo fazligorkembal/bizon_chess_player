@@ -14,11 +14,17 @@
   <build_depend>bizon_chess</build_depend>
   <build_depend>cv_bridge</build_depend>
   <build_depend>moveit_ros_planning_interface</build_depend>
+  <build_depend>moveit_msgs</build_depend>
+  <build_depend>shape_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
 
   <exec_depend>bizon_msgs</exec_depend>
   <exec_depend>bizon_chess</exec_depend>
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
+  <exec_depend>moveit_msgs</exec_depend>
+  <exec_depend>shape_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
 
   <exec_depend>bizon_util</exec_depend>
   <exec_depend>bizon_core</exec_depend>

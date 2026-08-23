@@ -19,6 +19,9 @@ find_package(OpenCV 4.0 REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
+find_package(moveit_msgs REQUIRED)
+find_package(shape_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(bizon_msgs REQUIRED)
 find_package(bizon_chess REQUIRED)
 
@@ -49,6 +52,9 @@ set(dependencies
   OpenCV
   cv_bridge
   moveit_ros_planning_interface
+  moveit_msgs
+  shape_msgs
+  geometry_msgs
   bizon_msgs
   bizon_chess
 )

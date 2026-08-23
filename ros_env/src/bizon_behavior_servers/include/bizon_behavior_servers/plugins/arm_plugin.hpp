@@ -7,8 +7,10 @@
 #include <vector>
 
 #include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 
 #include "bizon_behavior_servers/timed_behavior.hpp"
+#include "bizon_chess/robot_params.hpp"
 #include "bizon_msgs/action/arm.hpp"
 #include "bizon_util/node_thread.hpp"
 
@@ -62,6 +64,16 @@ private:
   Phase phase_{Phase::ARM_MOVING};
   std::vector<double> target_hand_position_;
   double planning_time_{15.0};
+
+  // ---- Planning scene (Task 7 / F6): populated in onRun() from the goal's
+  // board_fen before every plan, so the arm's joint-space moves route around
+  // the pieces instead of sweeping through them. See onRun()'s scene-rebuild
+  // block for why every rebuild removes all 64 possible square ids before
+  // re-adding the currently-occupied ones, rather than only ever adding. ----
+  moveit::planning_interface::PlanningSceneInterface planning_scene_;
+  bizon_chess::RobotParams params_;
+  double piece_height_{0.03};
+  double piece_radius_{0.012};
 };
 }  // namespace bizon_behaviors
 
