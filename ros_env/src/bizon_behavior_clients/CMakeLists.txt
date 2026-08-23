@@ -124,6 +124,21 @@ if(BUILD_TESTING)
   target_link_libraries(test_decision_action_client_node decision_action_client_node)
   ament_target_dependencies(test_decision_action_client_node ${dependencies})
 
+  # Pure C++, no ROS/BT dependency: covers PollThrottle's rate-limiting
+  # decision in isolation, with synthetic timestamps instead of real sleeps.
+  ament_add_gtest(test_poll_throttle test/test_poll_throttle.cpp)
+
+  # Builds a real (small, standalone) BT::Tree to prove Task 6's E-stop
+  # fixes behave, not just that the shipped XML has the right shape.
+  ament_add_gtest(test_move_type_seeded_before_first_decision
+    test/test_move_type_seeded_before_first_decision.cpp)
+  target_link_libraries(test_move_type_seeded_before_first_decision condition_node)
+  ament_target_dependencies(test_move_type_seeded_before_first_decision ${dependencies})
+
+  ament_add_gtest(test_reactive_guard_halts_running_work
+    test/test_reactive_guard_halts_running_work.cpp)
+  ament_target_dependencies(test_reactive_guard_halts_running_work ${dependencies})
+
   # Structural guard only: parses the shipped chess_game.xml with tinyxml2 and
   # walks the DOM directly, without building a BT::Tree (which would require a
   # live MoveGroupInterface, a move_group action server, and every other BT

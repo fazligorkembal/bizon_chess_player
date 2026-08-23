@@ -18,15 +18,21 @@ IsSystemActiveNode::IsSystemActiveNode(
 
 BT::NodeStatus IsSystemActiveNode::tick()
 {
-  const auto status = client_->is_active(std::chrono::seconds(1));
-  if (status == bizon_lifecycle_manager::SystemStatus::ACTIVE) {
-    return BT::NodeStatus::SUCCESS;
+  // Only make the real service call (and log) when a fresh poll is due;
+  // ticks in between reuse last_status_. See poll_throttle_'s declaration
+  // for why this node is ticked far more often than it needs to actually
+  // ask the lifecycle manager anything.
+  if (poll_throttle_.shouldPollNow(std::chrono::steady_clock::now())) {
+    last_status_ = client_->is_active(std::chrono::seconds(1));
+    if (last_status_ != bizon_lifecycle_manager::SystemStatus::ACTIVE) {
+      RCLCPP_ERROR(
+        node_->get_logger(),
+        "Lifecycle manager reports the system is not active; refusing to command the arm");
+    }
   }
 
-  RCLCPP_ERROR(
-    node_->get_logger(),
-    "Lifecycle manager reports the system is not active; refusing to command the arm");
-  return BT::NodeStatus::FAILURE;
+  return last_status_ == bizon_lifecycle_manager::SystemStatus::ACTIVE ?
+         BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
 
 }  // namespace bizon_behavior_clients

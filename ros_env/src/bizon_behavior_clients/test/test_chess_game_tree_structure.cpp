@@ -219,12 +219,16 @@ TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
 // deactivated behavior_server and also fails, and after 3 retries the whole
 // tree ends -- leaving nothing for a later RESUME command to act on. These
 // two tests prove the guard instead gates *entry to RecoveryNode itself*,
-// via a Fallback that sits outside RecoveryNode's work branch. Both tests
-// fail against the brief's literal placement (confirmed by hand against
-// that placement before this fix): the first because IsSystemActive would
-// be found inside the work branch, and the second because no
-// PlayMoveOrWaitForSystemActive fallback would exist at all -- RecoveryNode
-// would be reachable unconditionally, paused or not.
+// via a ReactiveFallback that sits outside RecoveryNode's work branch (it
+// must be reactive, not a plain Fallback, so a PAUSE arriving mid-move is
+// seen immediately rather than only at the next move boundary -- see
+// test_reactive_guard_halts_running_work.cpp and chess_game.xml's header
+// comment for that half of the story; this file only checks the XML has
+// the right shape). Both tests fail against the brief's literal placement
+// (confirmed by hand against that placement before this fix): the first
+// because IsSystemActive would be found inside the work branch, and the
+// second because no PlayMoveOrWaitForSystemActive fallback would exist at
+// all -- RecoveryNode would be reachable unconditionally, paused or not.
 
 TEST(ChessGameTreeStructure, IsSystemActiveIsNotInsideRecoveryNodeWorkBranch)
 {
@@ -283,13 +287,17 @@ TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
   ASSERT_NE(main_tree, nullptr);
 
   const XMLElement * guard =
-    findByTagAndName(main_tree, "Fallback", "PlayMoveOrWaitForSystemActive");
+    findByTagAndName(main_tree, "ReactiveFallback", "PlayMoveOrWaitForSystemActive");
   ASSERT_NE(guard, nullptr)
-    << "MainTree has no <Fallback name=\"PlayMoveOrWaitForSystemActive\">: without "
-       "it RecoveryNode is reachable unconditionally, regardless of system state.";
+    << "MainTree has no <ReactiveFallback name=\"PlayMoveOrWaitForSystemActive\">: "
+       "without it RecoveryNode is reachable unconditionally, regardless of system "
+       "state. It must specifically be a ReactiveFallback, not a plain Fallback: a "
+       "plain Fallback never re-ticks this guard once RecoveryNode starts running, "
+       "so a PAUSE arriving mid-move would go unnoticed until the move finishes on "
+       "its own (see test_reactive_guard_halts_running_work.cpp).";
 
   // First branch: the paused check. It must succeed exactly while the system
-  // is inactive (Inverter of IsSystemActive), so the Fallback short-circuits
+  // is inactive (Inverter of IsSystemActive), so the fallback short-circuits
   // before ever reaching RecoveryNode.
   const XMLElement * guard_branch = guard->FirstChildElement();
   ASSERT_NE(guard_branch, nullptr) << "the guard fallback has no children";

@@ -23,17 +23,47 @@
          three retries and ending KeepRunningUntilFailure with no tree left for a
          RESUME to act on. Gating RecoveryNode's entry instead means a paused tick
          issues no arm goal, spends no retry, and the game loop keeps spinning so
-         play resumes on its own once the system is reactivated. -->
+         play resumes on its own once the system is reactivated.
+
+         PlayMoveOrWaitForSystemActive MUST be a ReactiveFallback, not a plain
+         Fallback. A plain Fallback remembers which child last returned RUNNING
+         and, once RecoveryNode starts a move, never re-ticks IsSystemActive again
+         until that move finishes on its own (see FallbackNode::tick() in
+         BehaviorTree.CPP: current_child_idx_ is only advanced on FAILURE or
+         SUCCESS, never reset while a child keeps returning RUNNING). A PAUSE
+         arriving mid-move would then be invisible until the move either finishes
+         or the in-flight ArmActionClient times out against the now-deactivated
+         behavior_server and fails its way through RecoveryNode's retries, exactly
+         the failure this guard exists to prevent, reached through a still-running
+         cycle instead of a cycle boundary. ReactiveFallback re-ticks every child
+         from the top on every single BT tick, so it notices the moment
+         IsSystemActive starts failing and halts the running RecoveryNode branch
+         immediately, mid-move.
+
+         Known consequence of halting mid-move: the arm may still be holding a
+         piece when a PAUSE lands. RESUME restarts the work branch from the top of
+         PlayOneMove, whose first action drives the arm to home_position with
+         hand_close_position still set, i.e. while still gripping, which drags the
+         held piece across the board. Releasing before retreating is exactly the
+         hazard RecoverArm's step order exists to avoid; wiring an equivalent
+         release into the resume path is a real design change, out of scope for
+         this fix. It is accepted deliberately here: behavior_server is already
+         deactivated by the time a mid-move halt happens, so no motion occurs
+         either way, and an arm that keeps moving after an E-stop is strictly
+         worse than one frozen holding a piece. -->
     <BehaviorTree ID="MainTree">
         <KeepRunningUntilFailure>
             <Sequence name="PlayUntilGameOver">
 
                 <!-- IsSystemActive SUCCEEDs only while behavior_server is ACTIVE, so
                      Inverter(IsSystemActive) SUCCEEDs exactly while the system is
-                     paused, short-circuiting this Fallback before RecoveryNode is
+                     paused, short-circuiting this fallback before RecoveryNode is
                      ever ticked. When the system is active, Inverter FAILs and the
-                     Fallback falls through to the real work below. -->
-                <Fallback name="PlayMoveOrWaitForSystemActive">
+                     fallback falls through to the real work below. This must stay
+                     a ReactiveFallback (see the header comment) so a PAUSE landing
+                     mid-move halts RecoveryNode immediately instead of only being
+                     noticed at the next move boundary. -->
+                <ReactiveFallback name="PlayMoveOrWaitForSystemActive">
                     <Inverter>
                         <IsSystemActive lifecycle_manager_name="lifecycle_manager" />
                     </Inverter>
@@ -92,7 +122,7 @@
                         <SubTree ID="RecoverArm" _autoremap="true"/>
 
                     </RecoveryNode>
-                </Fallback>
+                </ReactiveFallback>
 
                 <Inverter>
                     <ConditionNode name="CheckGameOver" param1="{move_type}" param2="killking" />
