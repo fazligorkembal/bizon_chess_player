@@ -4,6 +4,7 @@
 
 using bizon_chess::RobotParams;
 using bizon_chess::squareToWorld;
+using bizon_chess::squareToWorldMirrored;
 using bizon_chess::worldToJointAngles;
 
 namespace {
@@ -66,6 +67,41 @@ TEST(BoardGeometry, JointAnglesReproduceTargetPosition)
   const double fy = p.link_l1 * std::sin(q1) + p.link_l2 * std::sin(q1 + q2);
   EXPECT_NEAR(fx, x, 1e-6);
   EXPECT_NEAR(fy, y, 1e-6);
+}
+
+// The black-side robot is bolted to the opposite edge of the same board, so
+// its convention mirrors both axes instead of just offsetting X the way
+// white's does -- see decision_plugin.cpp's mirror_xy(), which this
+// reproduces exactly (DecisionPlugin::box_to_world_mirrored ==
+// squareToWorldMirrored). A square landing at white's coordinates here would
+// mean every collision object ArmPlugin publishes for a black robot sits on
+// the wrong square, which is worse than publishing none at all.
+TEST(BoardGeometry, MirrorsForBlackSide)
+{
+  auto p = defaultParams();
+
+  double x_white = 0.0, y_white = 0.0;
+  p.mirrored = false;
+  ASSERT_TRUE(squareToWorldMirrored("e4", p, x_white, y_white));
+
+  double x_black = 0.0, y_black = 0.0;
+  p.mirrored = true;
+  ASSERT_TRUE(squareToWorldMirrored("e4", p, x_black, y_black));
+
+  double x_raw = 0.0, y_raw = 0.0;
+  ASSERT_TRUE(squareToWorld("e4", p, x_raw, y_raw));
+
+  EXPECT_NEAR(x_white, x_raw - p.robot_base_offset_x, 1e-9);
+  EXPECT_NEAR(y_white, y_raw, 1e-9);
+
+  EXPECT_NEAR(x_black, -x_raw - p.robot_base_offset_x, 1e-9);
+  EXPECT_NEAR(y_black, -y_raw, 1e-9);
+
+  // The two conventions must actually differ -- a test that passed on either
+  // branch of a broken if/else would not catch the defect Ruling 1 exists to
+  // prevent.
+  EXPECT_NE(x_white, x_black);
+  EXPECT_NE(y_white, y_black);
 }
 
 // Out of reach must be reported, not silently produce NaN.

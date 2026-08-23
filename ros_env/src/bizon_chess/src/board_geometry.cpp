@@ -26,6 +26,25 @@ bool squareToWorld(const std::string & square, const RobotParams & p, double & x
   return true;
 }
 
+void mirrorForRobotSide(const RobotParams & p, double & x, double & y)
+{
+  if (!p.mirrored) {
+    x -= p.robot_base_offset_x;
+  } else {
+    x = -x - p.robot_base_offset_x;
+    y = -y;
+  }
+}
+
+bool squareToWorldMirrored(const std::string & square, const RobotParams & p, double & x, double & y)
+{
+  if (!squareToWorld(square, p, x, y)) {
+    return false;
+  }
+  mirrorForRobotSide(p, x, y);
+  return true;
+}
+
 bool worldToJointAngles(double x, double y, const RobotParams & p, double & q1, double & q2)
 {
   const double r2 = x * x + y * y;
