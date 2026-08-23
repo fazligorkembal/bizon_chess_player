@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 
 include_directories(include)
 
-add_library(${PROJECT_NAME} SHARED src/board_geometry.cpp src/move_classification.cpp)
+add_library(${PROJECT_NAME} SHARED src/board_geometry.cpp src/move_classification.cpp src/fen.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -31,6 +31,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_move_classification test/test_move_classification.cpp)
   target_link_libraries(test_move_classification ${PROJECT_NAME})
+
+  ament_add_gtest(test_fen test/test_fen.cpp)
+  target_link_libraries(test_fen ${PROJECT_NAME})
 endif()
 
 ament_export_include_directories(include)
