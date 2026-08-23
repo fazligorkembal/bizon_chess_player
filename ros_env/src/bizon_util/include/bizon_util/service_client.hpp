@@ -54,7 +54,7 @@ namespace bizon_util
                     throw std::runtime_error(
                         service_name_ + " service client: interrupted while waiting for service");
                 }
-                RCLCPP_INFO(
+                RCLCPP_DEBUG(
                     node_->get_logger(), "%s service client: waiting for service to appear...",
                     service_name_.c_str());
             }

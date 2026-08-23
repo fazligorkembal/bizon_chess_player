@@ -89,6 +89,15 @@ def launch_setup(context, *args, **kwargs):
     ros2_control_hardware_type = LaunchConfiguration('ros2_control_hardware_type')
     use_controller = LaunchConfiguration('use_controller')
 
+    # Infrastructure nodes (move_group, ros2_control, robot_state_publisher, the
+    # controller spawners) are the bulk of the console noise and none of it is the
+    # game. They go to the launch log files under ~/.ros/log instead; the behavior
+    # server and the behavior-tree client stay on screen because that is the game.
+    # verbose:=true puts everything back on screen for debugging.
+    verbose = LaunchConfiguration('verbose').perform(context).lower() in ('true', '1')
+    infra_output = "screen" if verbose else "log"
+    move_group_log_level = LaunchConfiguration('move_group_log_level').perform(context)
+
     print(Colors.yellow + "MoveIt config package: " + moveit_config_package.perform(context) + Colors.end)
     print(Colors.yellow + "Bringup package: " + bringup_package.perform(context) + Colors.end)
     print(Colors.yellow + "Use sim time: " + use_sim_time.perform(context) + Colors.end)
@@ -160,12 +169,12 @@ def launch_setup(context, *args, **kwargs):
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
-        output="screen",
+        output=infra_output,
         parameters=move_group_params,
         arguments=[
-            "--ros-args", 
-            "--log-level", 
-            "move_group:=DEBUG",
+            "--ros-args",
+            "--log-level",
+            f"move_group:={move_group_log_level}",
             ],
     )
 
@@ -173,14 +182,14 @@ def launch_setup(context, *args, **kwargs):
         package="robot_state_publisher",
         executable="robot_state_publisher",
         name="robot_state_publisher",
-        output="both",
+        output=infra_output,
         parameters=[robot_description, {'use_sim_time': use_sim_time}],
     )
 
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        output="screen",
+        output=infra_output,
         parameters=[
             robot_description,
             ros2_controllers_yaml,
@@ -188,8 +197,9 @@ def launch_setup(context, *args, **kwargs):
         ],
     )
 
-    print(Colors.yellow + "MoveIt config after prefix change, Moveit Config: " + Colors.end)
-    print(robot_description)
+    if verbose:
+        print(Colors.yellow + "MoveIt config after prefix change, Moveit Config: " + Colors.end)
+        print(robot_description)
 
     load_controllers = []
     #for controller in ["joint_state_broadcaster", "arm_group_controller", "hand_group_controller"]: // isaac sim pushes joint statesm, so no need to spawn joint state broadcaster
@@ -201,7 +211,7 @@ def launch_setup(context, *args, **kwargs):
                     f"-c /{prefix.perform(context)}/controller_manager"
                 ],
                 shell=True,
-                output="screen",
+                output=infra_output,
             )
         )
     
@@ -249,6 +259,16 @@ def generate_launch_description():
         choices=['rviz', 'real', 'isaac']
     )
 
+    declare_verbose = DeclareLaunchArgument(
+        'verbose',
+        default_value='false',
+        description='Put the infrastructure nodes back on screen instead of the log files')
+
+    declare_move_group_log_level = DeclareLaunchArgument(
+        'move_group_log_level',
+        default_value='warn',
+        description="move_group's own log level; it was pinned to DEBUG and drowned the console")
+
     declare_use_controller = DeclareLaunchArgument(
         'use_controller',
         default_value='False',
@@ -262,6 +282,8 @@ def generate_launch_description():
             declare_prefix,
             declare_ros2_control_hardware_type,
             declare_use_controller,
+            declare_verbose,
+            declare_move_group_log_level,
         ]
         + [OpaqueFunction(function=launch_setup)]
     )

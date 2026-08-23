@@ -48,6 +48,8 @@ def launch_setup(context, *args, **kwargs):
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     log_level = LaunchConfiguration('log_level')
+    verbose = LaunchConfiguration('verbose').perform(context)
+    move_group_log_level = LaunchConfiguration('move_group_log_level').perform(context)
     moveit_config_package = LaunchConfiguration('moveit_config_package')
 
     params_file = LaunchConfiguration('params_file').perform(context)
@@ -69,6 +71,8 @@ def launch_setup(context, *args, **kwargs):
             'prefix': prefix,
             'use_sim_time': use_sim_time,
             'moveit_config_package': moveit_config_package,
+            'verbose': verbose,
+            'move_group_log_level': move_group_log_level,
         }.items(),
     )
 
@@ -123,6 +127,14 @@ def generate_launch_description():
             'autostart',
             default_value='true',
             description='Let the lifecycle manager activate behavior_server on startup'),
+        DeclareLaunchArgument(
+            'verbose',
+            default_value='false',
+            description='Put the infrastructure nodes back on screen instead of the log files'),
+        DeclareLaunchArgument(
+            'move_group_log_level',
+            default_value='warn',
+            description="move_group's own log level"),
         DeclareLaunchArgument(
             'log_level',
             default_value='info',

@@ -55,14 +55,14 @@ namespace bizon_lifecycle_manager
         auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
         auto response = std::make_shared<std_srvs::srv::Trigger::Response>();
 
-        RCLCPP_INFO(node_->get_logger(), "Waiting for the %s service...", active_service_name_.c_str());
+        RCLCPP_DEBUG(node_->get_logger(), "Waiting for the %s service...", active_service_name_.c_str());
 
         if (!is_active_client_->wait_for_service(std::chrono::seconds(1)))
         {
             return SystemStatus::TIMEOUT;
         }
 
-        RCLCPP_INFO(
+        RCLCPP_DEBUG(
             node_->get_logger(), "Sending %s request",
             active_service_name_.c_str());
 
