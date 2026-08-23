@@ -17,6 +17,16 @@ float64[] move_from3
 float64[] move_from_down3
 float64[] move_to3
 float64[] move_to_down3
+# Algebraic squares (e.g. "e4") behind each move_fromN/move_toN pair, for
+# ArmActionClient's target_square port -- see Task 7 (F6). Populated
+# alongside the joint targets above by the same handle_*() geometry helper,
+# so they always describe the same square that helper computed the pose for.
+string box_from1
+string box_to1
+string box_from2
+string box_to2
+string box_from3
+string box_to3
 float64[] hand_open_position
 float64[] hand_close_position
 uint16 error_code

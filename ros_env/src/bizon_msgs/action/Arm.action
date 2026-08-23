@@ -3,6 +3,14 @@ float64[] target_joint_positions
 float64[] target_hand_position
 string player_side
 bool hand_only
+# Current board FEN, used to refresh the planning scene's collision objects
+# before this goal is planned. Empty means "don't touch the scene" (e.g. the
+# home-position and recovery goals, which carry no board context).
+string board_fen
+# Square this goal is descending onto, if any. Its collision object is
+# removed after the scene is rebuilt from board_fen so the planner can
+# actually reach the piece being picked up or placed there.
+string target_square
 ---
 #result definition
 uint16 error_code

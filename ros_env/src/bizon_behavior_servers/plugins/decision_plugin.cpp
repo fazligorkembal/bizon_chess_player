@@ -486,6 +486,8 @@ bool DecisionPlugin::handle_straight()
   {
     return false;
   }
+  box_from1_ = box_from;
+  box_to1_ = box_to;
   return joint_targets_from_xy(x_from, y_from, move_from1_, move_from_down1_) &&
     joint_targets_from_xy(x_to, y_to, move_to1_, move_to_down1_);
 }
@@ -579,6 +581,11 @@ bool DecisionPlugin::handle_two_piece_move()
   mirror_xy(x_from2, y_from2);
   mirror_xy(x_to2, y_to2);
 
+  box_from1_ = box_from1;
+  box_to1_ = box_to1;
+  box_from2_ = box_from2;
+  box_to2_ = box_to2;
+
   return joint_targets_from_xy(x_from1, y_from1, move_from1_, move_from_down1_) &&
     joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
     joint_targets_from_xy(x_from2, y_from2, move_from2_, move_from_down2_) &&
@@ -629,6 +636,13 @@ bool DecisionPlugin::handle_promotion_capture()
   y_from2 += robot_params_.box_size * 2;
   y_to3 += robot_params_.box_size * 2;
   count_promotion_++;
+
+  box_from1_ = box_from1;
+  box_to1_ = box_to1;
+  box_from2_ = box_from2;
+  box_to2_ = box_to2;
+  box_from3_ = box_from3;
+  box_to3_ = box_to3;
 
   return joint_targets_from_xy(x_from1, y_from1, move_from1_, move_from_down1_) &&
     joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
@@ -949,6 +963,12 @@ void DecisionPlugin::reset_values()
   move_count_ = 0;
   count_white_captured_ = 0;
   count_black_captured_ = 0;
+  box_from1_.clear();
+  box_to1_.clear();
+  box_from2_.clear();
+  box_to2_.clear();
+  box_from3_.clear();
+  box_to3_.clear();
 }
 
 void DecisionPlugin::onActionCompletion(std::shared_ptr<DecisionAction::Result> result)
@@ -969,6 +989,12 @@ void DecisionPlugin::onActionCompletion(std::shared_ptr<DecisionAction::Result> 
   result->move_from_down3 = move_from_down3_;
   result->move_to3 = move_to3_;
   result->move_to_down3 = move_to_down3_;
+  result->box_from1 = box_from1_;
+  result->box_to1 = box_to1_;
+  result->box_from2 = box_from2_;
+  result->box_to2 = box_to2_;
+  result->box_from3 = box_from3_;
+  result->box_to3 = box_to3_;
 }
 
 }  // namespace bizon_behaviors

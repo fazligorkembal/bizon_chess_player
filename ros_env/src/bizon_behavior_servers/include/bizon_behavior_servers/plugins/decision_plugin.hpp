@@ -190,6 +190,8 @@ private:
   std::vector<double> move_from1_, move_from_down1_, move_to1_, move_to_down1_;
   std::vector<double> move_from2_, move_from_down2_, move_to2_, move_to_down2_;
   std::vector<double> move_from3_, move_from_down3_, move_to3_, move_to_down3_;
+  // Algebraic squares behind the joint targets above -- see Decision.action.
+  std::string box_from1_, box_to1_, box_from2_, box_to2_, box_from3_, box_to3_;
 };
 }  // namespace bizon_behaviors
 
