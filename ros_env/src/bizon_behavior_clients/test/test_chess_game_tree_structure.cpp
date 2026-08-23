@@ -104,6 +104,21 @@ const XMLElement * findByTagAndName(
   return nullptr;
 }
 
+/// Collects every element in the subtree rooted at `root` (root included)
+/// whose tag name is `tag_name`, in document order.
+void collectDescendantsByTag(
+  const XMLElement * root, const char * tag_name, std::vector<const XMLElement *> & out)
+{
+  if (std::string(root->Name()) == tag_name) {
+    out.push_back(root);
+  }
+  for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
+       child = child->NextSiblingElement())
+  {
+    collectDescendantsByTag(child, tag_name, out);
+  }
+}
+
 }  // namespace
 
 TEST(ChessGameTreeStructure, XmlParsesCleanly)
@@ -340,4 +355,95 @@ TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
     << total_arm_goals - guarded_arm_goals << " of " << total_arm_goals
     << " ArmActionClient node(s) in MainTree sit outside the guarded RecoveryNode "
        "subtree, and so would still be reachable while the system is paused.";
+}
+
+namespace {
+/// Ports are written as a blackboard reference, e.g. "{move_from_down}";
+/// strip the closing brace tinyxml2 hands back so a suffix check is exact
+/// rather than accidentally matching "_down" appearing earlier in the
+/// string.
+std::string stripBlackboardBrace(const std::string & value)
+{
+  return (!value.empty() && value.back() == '}') ? value.substr(0, value.size() - 1) : value;
+}
+
+bool endsWith(const std::string & value, const std::string & suffix)
+{
+  return value.size() >= suffix.size() &&
+    value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+}  // namespace
+
+// Task 7 (F6) structural guard, added after a review round caught it missing
+// on two calls (steps 4 and 8 of MoveSequence). ArmPlugin's planning-scene
+// rebuild removes all 64 possible piece_<square> collision objects and
+// re-adds one per occupied square from board_fen on every goal that carries
+// it, and MoveIt validates the arm's *current* joint state for collision,
+// not only its goal. So within MoveSequence's linear chain, target_square
+// must be set on:
+//   - every call whose own target_joint_positions is a "_down" value (the
+//     obvious case: it is descending onto that square), and
+//   - every call immediately following one of those, regardless of that
+//     call's own target (steps 4 and 8): its start state is wherever the
+//     previous call left the arm, which is still that same "_down" square,
+//     so a rebuilt cylinder there would leave the start state in collision
+//     before MoveIt ever plans -- exactly the failure a review round caught
+//     missing here once already.
+// This cannot prove (and does not try to prove) that target_square names
+// the *right* square -- see DecisionPlugin's box_from1_/box_to1_ handling
+// and its unit-level reasoning for that -- only that the port was not
+// simply left off a call that needs it.
+TEST(ChessGameTreeStructure, EveryArmGoalAtOrLeavingADownPositionCarriesATargetSquare)
+{
+  XMLDocument doc;
+  ASSERT_EQ(doc.LoadFile(CHESS_GAME_XML_PATH), tinyxml2::XML_SUCCESS);
+
+  const XMLElement * root = doc.RootElement();
+  ASSERT_NE(root, nullptr);
+
+  const XMLElement * move_sequence = nullptr;
+  for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
+       bt = bt->NextSiblingElement("BehaviorTree"))
+  {
+    const char * id = bt->Attribute("ID");
+    if (id != nullptr && std::string(id) == "MoveSequence") {
+      move_sequence = bt;
+      break;
+    }
+  }
+  ASSERT_NE(move_sequence, nullptr) << "chess_game.xml has no <BehaviorTree ID=\"MoveSequence\">";
+
+  std::vector<const XMLElement *> steps;
+  collectDescendantsByTag(move_sequence, "ArmActionClient", steps);
+  // MoveSequence is the pick-and-place chain: approach, descend-open,
+  // close-grip, lift, transit, descend-close, open-release, retreat.
+  ASSERT_EQ(steps.size(), 8u)
+    << "MoveSequence no longer has its expected 8-step shape; this test's "
+       "self/successor reasoning needs re-deriving against whatever it is now.";
+
+  int down_targets_seen = 0;
+  for (size_t i = 0; i < steps.size(); ++i) {
+    const char * target = steps[i]->Attribute("target_joint_positions");
+    ASSERT_NE(target, nullptr) << "MoveSequence step " << i + 1 << " has no target_joint_positions";
+    const bool this_step_is_down = endsWith(stripBlackboardBrace(target), "_down");
+    const bool previous_step_was_down =
+      i > 0 && endsWith(
+        stripBlackboardBrace(steps[i - 1]->Attribute("target_joint_positions")), "_down");
+
+    if (this_step_is_down) {
+      down_targets_seen++;
+    }
+    if (!this_step_is_down && !previous_step_was_down) {
+      continue;  // an "up" step whose start state is also clear, e.g. steps 1 and 5
+    }
+    EXPECT_NE(steps[i]->Attribute("target_square"), nullptr)
+      << "MoveSequence step " << i + 1 << " (target_joint_positions=\"" << target
+      << "\") has no target_square, but " << (this_step_is_down ? "its own goal" : "its start state")
+      << " sits at a \"_down\" square; the planning-scene rebuild will re-add a collision "
+         "object there and MoveIt will refuse to plan.";
+  }
+  EXPECT_EQ(down_targets_seen, 4)
+    << "expected exactly 4 \"_down\" target_joint_positions calls (move_from_down x2, "
+       "move_to_down x2); if MoveSequence's shape changed, this test's self/successor "
+       "reasoning needs re-deriving against the new shape.";
 }

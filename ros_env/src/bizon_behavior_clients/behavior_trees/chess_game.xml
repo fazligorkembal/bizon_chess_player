@@ -119,9 +119,18 @@
                                         box_from="{box_from}" box_to="{box_to}">
                                         <SubTree ID="MoveSequence" _autoremap="true"/>
                                     </Foreach>
+                                    <!-- No target_square: this call's own goal and its start
+                                         state (wherever the last MoveSequence step left the
+                                         arm) are both clear of every square's cylinder, so
+                                         nothing needs removing here. board_fen is still passed
+                                         so this retreat plans against a defined snapshot of the
+                                         board rather than whatever the last MoveSequence step's
+                                         target_square-driven removal happened to leave behind;
+                                         see Important 2 in the Task 7 review. -->
                                     <ArmActionClient player_side="{player_side}"
                                         target_joint_positions="{home_position}"
-                                        target_hand_position="{hand_close_position}" />
+                                        target_hand_position="{hand_close_position}"
+                                        board_fen="{fen}" />
                                 </Sequence>
                             </Fallback>
                         </Sequence>
@@ -141,33 +150,54 @@
 
     <!-- Order matters and is the whole point: open the gripper BEFORE moving,
          so a piece held at the moment of failure is set down where it is
-         rather than dragged across the board. -->
+         rather than dragged across the board.
+
+         board_fen is passed on every goal here (no target_square: none of
+         these three goals descends onto a specific square) so the recovery
+         plans against a defined snapshot of the board rather than whatever a
+         fault mid-MoveSequence happened to leave in the scene, e.g. a
+         target_square removal from the step that was running when the fault
+         hit, never restored because the fault ended the sequence before its
+         later steps (which would have re-added it, or moved target_square on
+         to a different square) ran. See Important 2 in the Task 7 review. -->
     <BehaviorTree ID="RecoverArm">
         <Sequence name="RecoverArm">
             <ArmActionClient player_side="{player_side}" hand_only="true"
-                target_hand_position="{hand_open_position}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}" />
             <ArmActionClient player_side="{player_side}"
                 target_joint_positions="{recovery_lift_position}"
-                target_hand_position="{hand_open_position}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}" />
             <ArmActionClient player_side="{player_side}"
                 target_joint_positions="{home_position}"
-                target_hand_position="{hand_close_position}" />
+                target_hand_position="{hand_close_position}" board_fen="{fen}" />
         </Sequence>
     </BehaviorTree>
 
     <!-- board_fen refreshes the planning scene's collision objects before every
-         goal (Task 7 / F6). target_square is set on both calls at each "down"
-         joint target (move_from_down: steps 2 and 3; move_to_down: steps 6 and
-         7), not only the first of the pair, because the arm's actual current
-         joint state, not just the goal it is heading to, is what MoveIt checks
-         for collision at plan time. Step 3 starts already at move_from_down
-         (step 2 left it there) and step 7 starts already at move_to_down (step
-         6 left it there); without target_square on the second call too, the
-         freshly-rebuilt collision object at that same square would leave the
-         arm's own current position in collision and planning would refuse to
-         even start. The "up" steps (1, 4, 5, 8) never need this: move_from and
-         move_to are the clearance height, above a piece-height cylinder, not
-         level with it. -->
+         goal (Task 7 / F6). target_square is set on every call whose *current*
+         joint state, not just its goal, sits at or inside the square the
+         object being removed represents, because MoveIt validates the start
+         state for collision, not only the goal:
+           - steps 2-3 (move_from_down) and steps 6-7 (move_to_down): the
+             obvious case, both calls' own goal is the down position.
+           - step 4 (move_from, hand closed): its START state is still
+             move_from_down (step 2/3 left the arm there) and it is carrying
+             the piece just grasped from box_from, so box_from's collision
+             object must stay out through this call too, or the rebuild would
+             re-add a cylinder exactly where the arm already is and MoveIt
+             would report "start state in collision" before it even plans.
+           - step 8 (move_to, hand open): its START state is still
+             move_to_down (step 6/7 left it there), sitting on whatever the
+             rebuild just put/removed at box_to (a real object for a capture,
+             since box_to was occupied in the pre-move board_fen). Same
+             failure mode as step 4 if target_square is missing here.
+         The piece is in the gripper for the entire span from step 4 through
+         step 8, so box_from's/box_to's cylinder should not exist during any
+         call across that span; steps 5-6-7 already get this for free because
+         their own target_square (box_to on 6-7) or the "up" clearance height
+         (step 5) keeps them out of trouble, but 4 and 8 need it stated
+         explicitly since they are the ones whose *start* state, not goal,
+         is the risk. -->
     <BehaviorTree ID="MoveSequence">
         <Sequence name="MoveSequence">
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_from}"
@@ -179,7 +209,8 @@
                 target_hand_position="{hand_close_position}" board_fen="{fen}"
                 target_square="{box_from}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_from}"
-                target_hand_position="{hand_close_position}" board_fen="{fen}" />
+                target_hand_position="{hand_close_position}" board_fen="{fen}"
+                target_square="{box_from}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to}"
                 target_hand_position="{hand_close_position}" board_fen="{fen}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to_down}"
@@ -189,7 +220,8 @@
                 target_hand_position="{hand_open_position}" board_fen="{fen}"
                 target_square="{box_to}" />
             <ArmActionClient player_side="{player_side}" target_joint_positions="{move_to}"
-                target_hand_position="{hand_open_position}" board_fen="{fen}" />
+                target_hand_position="{hand_open_position}" board_fen="{fen}"
+                target_square="{box_to}" />
         </Sequence>
     </BehaviorTree>
 </root>

@@ -69,8 +69,19 @@ private:
   // board_fen before every plan, so the arm's joint-space moves route around
   // the pieces instead of sweeping through them. See onRun()'s scene-rebuild
   // block for why every rebuild removes all 64 possible square ids before
-  // re-adding the currently-occupied ones, rather than only ever adding. ----
-  moveit::planning_interface::PlanningSceneInterface planning_scene_;
+  // re-adding the currently-occupied ones, rather than only ever adding.
+  //
+  // A unique_ptr, constructed in onConfigure() with node->get_namespace()
+  // (exactly like move_group_arm_/move_group_hand_ below), not a value
+  // member: PlanningSceneInterface's default constructor binds to the
+  // *global* namespace ("/apply_planning_scene"), not this robot's
+  // ("/bizon2/apply_planning_scene" or "/bizon3/..."), so anything published
+  // through a default-constructed one would never reach this robot's
+  // move_group and F6 would stay open at runtime. Its default constructor
+  // also blocks (wait = true) on service discovery, which a value member
+  // would do unconditionally on the pluginlib load path, before there is
+  // even a namespace to discover services under. ----
+  std::unique_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_;
   bizon_chess::RobotParams params_;
   double piece_height_{0.03};
   double piece_radius_{0.012};

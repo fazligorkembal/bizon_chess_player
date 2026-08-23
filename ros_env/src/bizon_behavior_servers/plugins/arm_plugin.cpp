@@ -79,6 +79,12 @@ void ArmPlugin::onConfigure()
   move_group_arm_->setPlanningTime(planning_time_);
   move_group_hand_->setPlanningTime(planning_time_);
 
+  // Namespaced exactly like the two MoveGroupInterfaces above -- see the
+  // header comment on planning_scene_ for why a default-constructed (global
+  // namespace) instance would silently talk to no one on a namespaced robot.
+  planning_scene_ = std::make_unique<moveit::planning_interface::PlanningSceneInterface>(
+    node->get_namespace());
+
   RCLCPP_INFO(node->get_logger(), "[%s] ArmPlugin configured", behavior_name_.c_str());
 }
 
@@ -86,6 +92,7 @@ void ArmPlugin::onCleanup()
 {
   move_group_arm_.reset();
   move_group_hand_.reset();
+  planning_scene_.reset();
   moveit_node_thread_.reset();
   moveit_node_.reset();
 }
@@ -131,7 +138,7 @@ ResultStatus ArmPlugin::onRun(const std::shared_ptr<const ArmAction::Goal> comma
         all_square_ids.push_back(std::string("piece_") + file + rank);
       }
     }
-    planning_scene_.removeCollisionObjects(all_square_ids);
+    planning_scene_->removeCollisionObjects(all_square_ids);
 
     std::vector<moveit_msgs::msg::CollisionObject> objects;
     for (const auto & square : bizon_chess::occupiedSquares(command->board_fen)) {
@@ -160,7 +167,7 @@ ResultStatus ArmPlugin::onRun(const std::shared_ptr<const ArmAction::Goal> comma
 
       objects.push_back(obj);
     }
-    planning_scene_.applyCollisionObjects(objects);
+    planning_scene_->applyCollisionObjects(objects);
 
     // The piece this goal is about to approach must not appear as an
     // obstacle to itself, or the planner refuses to reach the square it is
@@ -175,7 +182,7 @@ ResultStatus ArmPlugin::onRun(const std::shared_ptr<const ArmAction::Goal> comma
     // unsafe. Attaching the carried piece to the gripper so the scene
     // tracks it in flight is real future work, not needed to close F6.
     if (!command->target_square.empty()) {
-      planning_scene_.removeCollisionObjects({"piece_" + command->target_square});
+      planning_scene_->removeCollisionObjects({"piece_" + command->target_square});
     }
   }
 

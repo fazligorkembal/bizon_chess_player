@@ -352,6 +352,15 @@ ResultStatus DecisionPlugin::handle_save_piece()
     return ResultStatus{Status::FAILED, 3};
   }
 
+  // box_from names the real square the piece is picked up from -- safe for
+  // target_square to remove. box_to1_ is deliberately left empty (already
+  // cleared by reset_values()): the y_to offset above moves the actual
+  // joint target off box_to's square into promotion-pile staging space, so
+  // "box_to" no longer names where the arm is actually descending, and
+  // target_square must not try to remove a collision object at that
+  // now-wrong, real, on-board square.
+  box_from1_ = box_from;
+
   hand_close_position_ = {
     robot_params_.gap_eef_close, robot_params_.gap_eef_close, robot_params_.gap_eef_close};
   hand_open_position_ = {
@@ -383,6 +392,13 @@ ResultStatus DecisionPlugin::handle_checkmate(const std::string & fen)
       node->get_logger(), "[%s] unreachable king-removal target", behavior_name_.c_str());
     return ResultStatus{Status::FAILED, 3};
   }
+
+  // box_from1_ names the real square the losing king sits on -- safe for
+  // target_square to remove so the arm can descend onto it. box_to1_ is
+  // deliberately left empty (already cleared by reset_values()): (x_to, y_to)
+  // above is the mirrored origin, an arbitrary discard point with no square
+  // name at all, not somewhere target_square could name even if we wanted to.
+  box_from1_ = box_killing_king;
 
   move_from2_ = move_from_down2_ = move_to2_ = move_to_down2_ = std::vector<double>{0.0, 0.0, 0.0, 0.0};
   move_from3_ = move_from_down3_ = move_to3_ = move_to_down3_ = std::vector<double>{0.0, 0.0, 0.0, 0.0};
@@ -585,6 +601,22 @@ bool DecisionPlugin::handle_two_piece_move()
   box_to1_ = box_to1;
   box_from2_ = box_from2;
   box_to2_ = box_to2;
+  // A box name whose coordinates just received a y-offset above no longer
+  // describes where the arm actually descends -- the offset pushes that
+  // target into off-board staging space (a discard pile, a promotion pile),
+  // while the box's name still points at the real, on-board square it was
+  // computed from. Clearing it here means target_square skips the removal
+  // for that staging descent instead of deleting an innocent piece's
+  // collision object on the real square of the same name. See Important 1
+  // in the Task 7 review.
+  if (move_type_ == "en_passant") {
+    box_to2_.clear();
+  } else if (move_type_ == "capture") {
+    box_to1_.clear();
+  } else if (move_type_ == "promotion") {
+    box_from1_.clear();
+    box_to2_.clear();
+  }
 
   return joint_targets_from_xy(x_from1, y_from1, move_from1_, move_from_down1_) &&
     joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
@@ -637,12 +669,18 @@ bool DecisionPlugin::handle_promotion_capture()
   y_to3 += robot_params_.box_size * 2;
   count_promotion_++;
 
+  // See the identical reasoning in handle_two_piece_move(): a box name whose
+  // coordinates received a y-offset above no longer describes the square the
+  // arm actually descends onto, so it is left cleared (Important 1, Task 7
+  // review) rather than assigned. y_to1's offset moves the captured piece
+  // off box_to1's square; y_from2's and y_to3's offsets (both applied after
+  // mirroring, above) move the new/discarded piece off box_from2's/box_to3's
+  // squares respectively -- box_from1 and box_from3 (real captured-piece and
+  // pawn squares) and box_to2 (the real promotion destination) get no offset
+  // and are safe to assign.
   box_from1_ = box_from1;
-  box_to1_ = box_to1;
-  box_from2_ = box_from2;
   box_to2_ = box_to2;
   box_from3_ = box_from3;
-  box_to3_ = box_to3;
 
   return joint_targets_from_xy(x_from1, y_from1, move_from1_, move_from_down1_) &&
     joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
