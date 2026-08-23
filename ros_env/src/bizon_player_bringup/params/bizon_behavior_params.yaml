@@ -11,6 +11,18 @@ behavior_server:
     arm_action:
       plugin: "bizon_behaviors/ArmPlugin"
       planning_time: 15.0
+      # Same board geometry as decision_action below -- ArmPlugin needs
+      # box_size/robot_base_offset_x to place planning-scene collision
+      # objects on the right squares (Task 7 / F6). Set explicitly rather
+      # than left to RobotParams's defaults (which happen to match) so the
+      # two plugins can never silently drift apart if one file is edited
+      # without the other.
+      box_size: 0.03718857142
+      robot_base_offset_x: -0.3
+      # Cylinder dimensions for each piece's collision object; real geometry
+      # is a hardware-phase calibration task.
+      piece_height: 0.03
+      piece_radius: 0.012
     decision_action:
       plugin: "bizon_behaviors/DecisionPlugin"
       # Deliberate per-side engine-strength handicap, not hardware tuning:
