@@ -35,7 +35,8 @@ int main(int argc, char **argv)
         "decision_action_client_node",
         "condition_node",
         "foreach_node",
-        "recovery_node"
+        "recovery_node",
+        "is_system_active_node"
     };
 
     RCLCPP_INFO(rclcpp::get_logger("main"), "Loading BT plugin libraries...");

@@ -70,6 +70,19 @@ bool contains(const std::vector<std::string> & haystack, const std::string & nee
   return false;
 }
 
+/// Counts every element in the subtree rooted at `root` (root included)
+/// whose tag name is `tag_name`.
+int countDescendantsByTag(const XMLElement * root, const char * tag_name)
+{
+  int count = (std::string(root->Name()) == tag_name) ? 1 : 0;
+  for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
+       child = child->NextSiblingElement())
+  {
+    count += countDescendantsByTag(child, tag_name);
+  }
+  return count;
+}
+
 /// Depth-first search for the first descendant of `root` (root included) whose
 /// tag is `tag_name` AND whose `name` attribute equals `name_attr`.
 const XMLElement * findByTagAndName(
@@ -194,4 +207,129 @@ TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
   const XMLElement * move_loop = findByTagAndName(guard, "Foreach", "MoveLoop");
   EXPECT_NE(move_loop, nullptr)
     << "Foreach MoveLoop must be a descendant of the MoveOrWaitForOpponent guard";
+}
+
+// Task 6 (F5, the E-stop path): a paused system (lifecycle_manager PAUSE
+// deactivates behavior_server) is a third instance of the same shape as
+// waiting for the opponent above -- a normal, expected non-progress state,
+// not a fault. The task brief's own Step 4 places IsSystemActive as the
+// first element of RecoveryNode's work branch (Sequence "PlayOneMove").
+// That placement is wrong: it makes a pause read as a fault, RecoveryNode
+// spends a retry and runs its recovery subtree, which also needs the now-
+// deactivated behavior_server and also fails, and after 3 retries the whole
+// tree ends -- leaving nothing for a later RESUME command to act on. These
+// two tests prove the guard instead gates *entry to RecoveryNode itself*,
+// via a Fallback that sits outside RecoveryNode's work branch. Both tests
+// fail against the brief's literal placement (confirmed by hand against
+// that placement before this fix): the first because IsSystemActive would
+// be found inside the work branch, and the second because no
+// PlayMoveOrWaitForSystemActive fallback would exist at all -- RecoveryNode
+// would be reachable unconditionally, paused or not.
+
+TEST(ChessGameTreeStructure, IsSystemActiveIsNotInsideRecoveryNodeWorkBranch)
+{
+  XMLDocument doc;
+  ASSERT_EQ(doc.LoadFile(CHESS_GAME_XML_PATH), tinyxml2::XML_SUCCESS);
+
+  const XMLElement * root = doc.RootElement();
+  ASSERT_NE(root, nullptr);
+
+  const XMLElement * main_tree = nullptr;
+  for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
+       bt = bt->NextSiblingElement("BehaviorTree"))
+  {
+    const char * id = bt->Attribute("ID");
+    if (id != nullptr && std::string(id) == "MainTree") {
+      main_tree = bt;
+      break;
+    }
+  }
+  ASSERT_NE(main_tree, nullptr);
+
+  ASSERT_NE(findDescendantByTag(main_tree, "IsSystemActive"), nullptr)
+    << "MainTree has no IsSystemActive node: the E-stop guard is missing entirely";
+
+  const XMLElement * recovery_node = findDescendantByTag(main_tree, "RecoveryNode");
+  ASSERT_NE(recovery_node, nullptr) << "MainTree has no RecoveryNode";
+
+  const XMLElement * work_branch = recovery_node->FirstChildElement();
+  ASSERT_NE(work_branch, nullptr) << "RecoveryNode has no children";
+
+  EXPECT_EQ(findDescendantByTag(work_branch, "IsSystemActive"), nullptr)
+    << "IsSystemActive must not be inside RecoveryNode's work branch: a paused "
+       "system would then read as a fault, and recovery -- which also needs the "
+       "deactivated behavior_server -- would fail too, burning all retries and "
+       "ending the tree with nothing left for a RESUME to act on.";
+}
+
+TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
+{
+  XMLDocument doc;
+  ASSERT_EQ(doc.LoadFile(CHESS_GAME_XML_PATH), tinyxml2::XML_SUCCESS);
+
+  const XMLElement * root = doc.RootElement();
+  ASSERT_NE(root, nullptr);
+
+  const XMLElement * main_tree = nullptr;
+  for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
+       bt = bt->NextSiblingElement("BehaviorTree"))
+  {
+    const char * id = bt->Attribute("ID");
+    if (id != nullptr && std::string(id) == "MainTree") {
+      main_tree = bt;
+      break;
+    }
+  }
+  ASSERT_NE(main_tree, nullptr);
+
+  const XMLElement * guard =
+    findByTagAndName(main_tree, "Fallback", "PlayMoveOrWaitForSystemActive");
+  ASSERT_NE(guard, nullptr)
+    << "MainTree has no <Fallback name=\"PlayMoveOrWaitForSystemActive\">: without "
+       "it RecoveryNode is reachable unconditionally, regardless of system state.";
+
+  // First branch: the paused check. It must succeed exactly while the system
+  // is inactive (Inverter of IsSystemActive), so the Fallback short-circuits
+  // before ever reaching RecoveryNode.
+  const XMLElement * guard_branch = guard->FirstChildElement();
+  ASSERT_NE(guard_branch, nullptr) << "the guard fallback has no children";
+  EXPECT_EQ(std::string(guard_branch->Name()), "Inverter")
+    << "the guard fallback's first child must invert IsSystemActive, so it "
+       "SUCCEEDs -- short-circuiting the fallback -- exactly while the system "
+       "is paused";
+  EXPECT_NE(findDescendantByTag(guard_branch, "IsSystemActive"), nullptr)
+    << "the guard fallback's first child must wrap IsSystemActive";
+  EXPECT_EQ(findDescendantByTag(guard_branch, "RecoveryNode"), nullptr)
+    << "RecoveryNode must not be reachable from the guard branch itself: a "
+       "paused tick that satisfies the guard must never reach RecoveryNode, "
+       "let alone its recovery subtree.";
+
+  // Second branch: the real work, reached only when the first branch fails
+  // (system active). RecoveryNode -- and everything it protects -- must live
+  // here.
+  const XMLElement * work_branch_wrapper = guard->LastChildElement();
+  ASSERT_NE(work_branch_wrapper, nullptr) << "the guard fallback has only one child";
+  ASSERT_NE(work_branch_wrapper, guard_branch)
+    << "the guard fallback needs a second, distinct branch for the real work";
+  const XMLElement * recovery_node_in_guard =
+    (std::string(work_branch_wrapper->Name()) == "RecoveryNode") ?
+    work_branch_wrapper : findDescendantByTag(work_branch_wrapper, "RecoveryNode");
+  ASSERT_NE(recovery_node_in_guard, nullptr)
+    << "the guard fallback's second branch must contain RecoveryNode";
+
+  // No arm goal may be reachable outside that guarded RecoveryNode. Every
+  // ArmActionClient element literally present in MainTree's XML (the
+  // MoveSequence and RecoverArm subtrees are separate <BehaviorTree>
+  // definitions reached via <SubTree>, so they don't appear here directly,
+  // but they are only ever reached BY ticking RecoveryNode) must be nested
+  // under it, so a paused tick -- which never reaches RecoveryNode -- can
+  // never reach an arm goal either.
+  const int total_arm_goals = countDescendantsByTag(main_tree, "ArmActionClient");
+  const int guarded_arm_goals = countDescendantsByTag(recovery_node_in_guard, "ArmActionClient");
+  ASSERT_GT(total_arm_goals, 0) << "sanity check: MainTree issues no ArmActionClient "
+    "goals at all -- the fixture no longer matches this test's assumptions";
+  EXPECT_EQ(total_arm_goals, guarded_arm_goals)
+    << total_arm_goals - guarded_arm_goals << " of " << total_arm_goals
+    << " ArmActionClient node(s) in MainTree sit outside the guarded RecoveryNode "
+       "subtree, and so would still be reachable while the system is paused.";
 }

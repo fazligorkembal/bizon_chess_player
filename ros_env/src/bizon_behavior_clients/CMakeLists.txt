@@ -30,6 +30,7 @@ find_package(moveit_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(bizon_util REQUIRED)
 find_package(bizon_msgs REQUIRED)
+find_package(bizon_lifecycle_manager REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 
@@ -44,6 +45,7 @@ set(dependencies
   moveit_ros_planning_interface
   bizon_util
   bizon_msgs
+  bizon_lifecycle_manager
   cv_bridge
 )
 
@@ -75,6 +77,9 @@ list(APPEND plugin_libs run_until_success_node)
 
 add_library(condition_node SHARED plugins/control/condition_node.cpp)
 list(APPEND plugin_libs condition_node)
+
+add_library(is_system_active_node SHARED plugins/condition/is_system_active_node.cpp)
+list(APPEND plugin_libs is_system_active_node)
 
 add_library(foreach_node SHARED plugins/control/foreach_node.cpp)
 list(APPEND plugin_libs foreach_node)

@@ -9,65 +9,90 @@
          - RecoveryNode handles genuine faults only. Its work branch performs one
            full move; the recovery branch always releases the piece and lifts clear
            before the work branch is allowed to run again. A move that succeeds
-           never touches the recovery branch at all. -->
+           never touches the recovery branch at all.
+
+         A paused system (the E-stop path: lifecycle_manager PAUSE deactivates
+         behavior_server) is a third instance of the same shape as waiting for the
+         opponent below: a normal, expected non-progress state, not a fault. For
+         that reason IsSystemActive is NOT the first element of RecoveryNode's work
+         branch; instead it gates entry to RecoveryNode itself, via the
+         PlayMoveOrWaitForSystemActive fallback. behavior_server is precisely the
+         node that PAUSE deactivates, so if IsSystemActive failed *inside* the work
+         branch, RecoveryNode would treat the pause as a fault and run its recovery
+         subtree, which also needs behavior_server and also fails, burning all
+         three retries and ending KeepRunningUntilFailure with no tree left for a
+         RESUME to act on. Gating RecoveryNode's entry instead means a paused tick
+         issues no arm goal, spends no retry, and the game loop keeps spinning so
+         play resumes on its own once the system is reactivated. -->
     <BehaviorTree ID="MainTree">
         <KeepRunningUntilFailure>
             <Sequence name="PlayUntilGameOver">
 
-                <RecoveryNode number_of_retries="3">
+                <!-- IsSystemActive SUCCEEDs only while behavior_server is ACTIVE, so
+                     Inverter(IsSystemActive) SUCCEEDs exactly while the system is
+                     paused, short-circuiting this Fallback before RecoveryNode is
+                     ever ticked. When the system is active, Inverter FAILs and the
+                     Fallback falls through to the real work below. -->
+                <Fallback name="PlayMoveOrWaitForSystemActive">
+                    <Inverter>
+                        <IsSystemActive lifecycle_manager_name="lifecycle_manager" />
+                    </Inverter>
 
-                    <Sequence name="PlayOneMove">
-                        <Script code="home_position := '-1.5807;0.0;1.5807;0.0'; hand_open_position := '0.20;0.20;0.20'; hand_close_position := '0.04;0.04;0.04'" />
-                        <ArmActionClient player_side="{player_side}"
-                            target_joint_positions="{home_position}"
-                            target_hand_position="{hand_close_position}" />
-                        <BoardActionIsaacClient server_name="board_action" sec="15" nanosec="0"
-                            player_side="{player_side}" fen="{fen}" />
-                        <MakeDecisionClient player_side="{player_side}" fen="{fen}"
-                            hand_open_position="{hand_open_position}"
-                            hand_close_position="{hand_close_position}"
-                            move_type="{move_type}"
-                            move_count="{move_count}"
-                            move_from1="{move_from1}" move_from_down1="{move_from_down1}"
-                            move_to1="{move_to1}" move_to_down1="{move_to_down1}"
-                            move_from2="{move_from2}" move_from_down2="{move_from_down2}"
-                            move_to2="{move_to2}" move_to_down2="{move_to_down2}"
-                            move_from3="{move_from3}" move_from_down3="{move_from_down3}"
-                            move_to3="{move_to3}" move_to_down3="{move_to_down3}" />
-                        <!-- Waiting for the opponent is not a fault. MakeDecisionClient
-                             reports it as SUCCESS with move_type "wait", and this guard
-                             skips the move subtree so no retry is spent and no recovery
-                             runs. Without the guard, Foreach would tick with move_count 0
-                             and FAIL (foreach_node.cpp treats count <= 0 as failure),
-                             which is exactly the fault we are avoiding. The arm is
-                             already at home from the top of this sequence, so a waiting
-                             tick plans no motion at all. -->
-                        <Fallback name="MoveOrWaitForOpponent">
-                            <ConditionNode name="CheckWaitingForOpponent"
-                                param1="{move_type}" param2="wait" />
-                            <Sequence name="ExecuteMove">
-                                <Foreach name="MoveLoop"
-                                    move_count="{move_count}"
-                                    move_from1="{move_from1}" move_from_down1="{move_from_down1}"
-                                    move_to1="{move_to1}" move_to_down1="{move_to_down1}"
-                                    move_from2="{move_from2}" move_from_down2="{move_from_down2}"
-                                    move_to2="{move_to2}" move_to_down2="{move_to_down2}"
-                                    move_from3="{move_from3}" move_from_down3="{move_from_down3}"
-                                    move_to3="{move_to3}" move_to_down3="{move_to_down3}"
-                                    move_from="{move_from}" move_from_down="{move_from_down}"
-                                    move_to="{move_to}" move_to_down="{move_to_down}">
-                                    <SubTree ID="MoveSequence" _autoremap="true"/>
-                                </Foreach>
-                                <ArmActionClient player_side="{player_side}"
-                                    target_joint_positions="{home_position}"
-                                    target_hand_position="{hand_close_position}" />
-                            </Sequence>
-                        </Fallback>
-                    </Sequence>
+                    <RecoveryNode number_of_retries="3">
 
-                    <SubTree ID="RecoverArm" _autoremap="true"/>
+                        <Sequence name="PlayOneMove">
+                            <Script code="home_position := '-1.5807;0.0;1.5807;0.0'; hand_open_position := '0.20;0.20;0.20'; hand_close_position := '0.04;0.04;0.04'" />
+                            <ArmActionClient player_side="{player_side}"
+                                target_joint_positions="{home_position}"
+                                target_hand_position="{hand_close_position}" />
+                            <BoardActionIsaacClient server_name="board_action" sec="15" nanosec="0"
+                                player_side="{player_side}" fen="{fen}" />
+                            <MakeDecisionClient player_side="{player_side}" fen="{fen}"
+                                hand_open_position="{hand_open_position}"
+                                hand_close_position="{hand_close_position}"
+                                move_type="{move_type}"
+                                move_count="{move_count}"
+                                move_from1="{move_from1}" move_from_down1="{move_from_down1}"
+                                move_to1="{move_to1}" move_to_down1="{move_to_down1}"
+                                move_from2="{move_from2}" move_from_down2="{move_from_down2}"
+                                move_to2="{move_to2}" move_to_down2="{move_to_down2}"
+                                move_from3="{move_from3}" move_from_down3="{move_from_down3}"
+                                move_to3="{move_to3}" move_to_down3="{move_to_down3}" />
+                            <!-- Waiting for the opponent is not a fault. MakeDecisionClient
+                                 reports it as SUCCESS with move_type "wait", and this guard
+                                 skips the move subtree so no retry is spent and no recovery
+                                 runs. Without the guard, Foreach would tick with move_count 0
+                                 and FAIL (foreach_node.cpp treats count <= 0 as failure),
+                                 which is exactly the fault we are avoiding. The arm is
+                                 already at home from the top of this sequence, so a waiting
+                                 tick plans no motion at all. -->
+                            <Fallback name="MoveOrWaitForOpponent">
+                                <ConditionNode name="CheckWaitingForOpponent"
+                                    param1="{move_type}" param2="wait" />
+                                <Sequence name="ExecuteMove">
+                                    <Foreach name="MoveLoop"
+                                        move_count="{move_count}"
+                                        move_from1="{move_from1}" move_from_down1="{move_from_down1}"
+                                        move_to1="{move_to1}" move_to_down1="{move_to_down1}"
+                                        move_from2="{move_from2}" move_from_down2="{move_from_down2}"
+                                        move_to2="{move_to2}" move_to_down2="{move_to_down2}"
+                                        move_from3="{move_from3}" move_from_down3="{move_from_down3}"
+                                        move_to3="{move_to3}" move_to_down3="{move_to_down3}"
+                                        move_from="{move_from}" move_from_down="{move_from_down}"
+                                        move_to="{move_to}" move_to_down="{move_to_down}">
+                                        <SubTree ID="MoveSequence" _autoremap="true"/>
+                                    </Foreach>
+                                    <ArmActionClient player_side="{player_side}"
+                                        target_joint_positions="{home_position}"
+                                        target_hand_position="{hand_close_position}" />
+                                </Sequence>
+                            </Fallback>
+                        </Sequence>
 
-                </RecoveryNode>
+                        <SubTree ID="RecoverArm" _autoremap="true"/>
+
+                    </RecoveryNode>
+                </Fallback>
 
                 <Inverter>
                     <ConditionNode name="CheckGameOver" param1="{move_type}" param2="killking" />

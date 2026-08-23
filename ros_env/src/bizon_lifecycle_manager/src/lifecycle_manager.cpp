@@ -30,17 +30,14 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions& options)
     declare_parameter("attempt_respawn_reconnection", true);
     registerRclPreshutdownCallback();
 
-    //node_names_ = get_parameter("node_names").as_string_array();
-    node_names_ = {"behavior_server"};
-    //node_names_ = {"bt_navigator"};
-    //node_names_ = {"bt_navigator", "behavior_server"};
-    RCLCPP_WARN(
-        get_logger(),
-        "Static node_names_ ititialized, should be parameterized.");
+    node_names_ = get_parameter("node_names").as_string_array();
     RCLCPP_INFO(
         get_logger(),
-        "Node count : %zu",
+        "Managing %zu lifecycle nodes",
         node_names_.size());
+    for (const auto & name : node_names_) {
+        RCLCPP_INFO(get_logger(), "  - %s", name.c_str());
+    }
 
     get_parameter("autostart", autostart_);
     double bond_timeout_s;

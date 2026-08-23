@@ -43,12 +43,39 @@ add_library(${library_name}
   src/lifecycle_manager_client.cpp
 )
 
+# bizon_behavior_clients (Task 6, F5) links LifecycleManagerClient into
+# is_system_active_node, a BT plugin built as a SHARED library. A static
+# archive built without -fPIC cannot be linked into a shared object (ld:
+# "relocation ... can not be used when making a shared object; recompile
+# with -fPIC"), so this must be position-independent even though it stays a
+# static library itself.
+set_target_properties(${library_name} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 ament_target_dependencies(${library_name} "${dependencies}")
 
 add_executable(lifecycle_manager_node src/main.cpp)
 target_link_libraries(lifecycle_manager_node ${library_name})
 ament_target_dependencies(lifecycle_manager_node "${dependencies}")
 
+
+install(DIRECTORY include/
+  DESTINATION include/
+)
+
+# ${library_name} (bizon_lifecycle_manager_core) must actually land in the
+# install tree, not just get exported by name below: bizon_behavior_clients
+# (Task 6, F5) is the first consumer of LifecycleManagerClient outside this
+# package, and ament_export_libraries() alone only *declares* the library
+# name for downstream find_package() -- it does not install the archive.
+# Without this, downstream find_package(bizon_lifecycle_manager) fails at
+# CMake configure time with "exports the library ... which couldn't be
+# found".
+install(TARGETS
+  ${library_name}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
 install(TARGETS
   lifecycle_manager_node
