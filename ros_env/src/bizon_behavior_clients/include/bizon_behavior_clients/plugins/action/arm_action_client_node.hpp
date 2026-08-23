@@ -35,6 +35,15 @@ public:
       // arm move: moving first would drag a held piece across the board.
       BT::InputPort<bool>("hand_only", false,
         "Command only the gripper, leaving the arm stationary"),
+      // Task 7 (F6): refresh the planning scene from the board before
+      // planning this goal, and open a path to the square being descended
+      // onto. Both default to empty, meaning "leave the scene alone" --
+      // e.g. the home-position and RecoverArm goals, which carry no board
+      // context and would otherwise clear the whole scene on every tick.
+      BT::InputPort<std::string>(
+        "board_fen", "", "Current board FEN; refreshes planning-scene collision objects"),
+      BT::InputPort<std::string>(
+        "target_square", "", "Square this goal descends onto; its collision object is removed"),
     });
   }
 };

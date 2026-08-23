@@ -72,6 +72,20 @@ public:
         "move_to_down3",
         "The move's destination with downward offset joint angles for third piece in case of "
         "promotion capture"),
+      // Algebraic squares behind each move_fromN/move_toN pair above, for
+      // ArmActionClient's target_square port -- see Task 7 (F6): the arm
+      // must remove the collision object for the square it is about to
+      // descend onto, which needs the square's name, not its joint angles.
+      BT::OutputPort<std::string>("box_from1", "The move's source square"),
+      BT::OutputPort<std::string>("box_to1", "The move's destination square"),
+      BT::OutputPort<std::string>(
+        "box_from2", "The move's source square for the second piece in a castling/capture move"),
+      BT::OutputPort<std::string>(
+        "box_to2", "The move's destination square for the second piece in a castling/capture move"),
+      BT::OutputPort<std::string>(
+        "box_from3", "The move's source square for the third piece in a promotion capture"),
+      BT::OutputPort<std::string>(
+        "box_to3", "The move's destination square for the third piece in a promotion capture"),
     });
   }
 };

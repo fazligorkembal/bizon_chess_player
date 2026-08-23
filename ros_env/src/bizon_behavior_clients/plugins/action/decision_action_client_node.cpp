@@ -53,6 +53,12 @@ BT::NodeStatus DecisionActionClientNode::onResultReceived(
   setOutput("move_from_down3", result.result->move_from_down3);
   setOutput("move_to3", result.result->move_to3);
   setOutput("move_to_down3", result.result->move_to_down3);
+  setOutput("box_from1", result.result->box_from1);
+  setOutput("box_to1", result.result->box_to1);
+  setOutput("box_from2", result.result->box_from2);
+  setOutput("box_to2", result.result->box_to2);
+  setOutput("box_from3", result.result->box_from3);
+  setOutput("box_to3", result.result->box_to3);
 
   return BT::NodeStatus::SUCCESS;
 }

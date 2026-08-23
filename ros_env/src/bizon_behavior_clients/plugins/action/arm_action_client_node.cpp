@@ -16,14 +16,20 @@ void ArmActionClientNode::on_tick()
   std::vector<double> hand;
   std::string player_side;
   bool hand_only = false;
+  std::string board_fen;
+  std::string target_square;
 
   getInput("target_hand_position", hand);
   getInput("player_side", player_side);
   getInput("hand_only", hand_only);
+  getInput("board_fen", board_fen);
+  getInput("target_square", target_square);
 
   goal_.target_hand_position = hand;
   goal_.player_side = player_side;
   goal_.hand_only = hand_only;
+  goal_.board_fen = board_fen;
+  goal_.target_square = target_square;
 
   // hand_only goals (e.g. the recovery subtree's first step) never read or
   // send target_joint_positions: moving the arm first would drag a held
