@@ -82,6 +82,19 @@ namespace bizon_behaviors
         std::string results_;
         int32_t empty_count_{0};
         std::atomic<bool> is_result_ready_{false};
+
+        // FEN debounce. Two robots share one board, and the camera happily
+        // photographs it in the middle of the other arm's move -- a capture is
+        // two physical moves, so there is a window where the captured piece is
+        // already gone and the capturing piece has not arrived. That position
+        // is not reachable by any legal move, the decision ladder rightly finds
+        // no match, and the goal fails. Requiring the same FEN on several
+        // consecutive frames means the board has stopped changing before we act
+        // on it, which is also the interlock that keeps an arm out of a square
+        // the other arm is still working in.
+        std::string pending_fen_;
+        int pending_fen_count_{0};
+        int fen_stable_count_{3};
         bool is_black_side_{false};
 
         // ---- Error-bundle state (spec section 5). Everything below is

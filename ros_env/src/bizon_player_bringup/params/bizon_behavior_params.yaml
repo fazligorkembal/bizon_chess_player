@@ -8,6 +8,14 @@ behavior_server:
       plugin: "bizon_behaviors/WaitPlugin"
     board_action:
       plugin: "bizon_behaviors/BoardPlugin"
+      # Two robots share one board and the camera photographs it mid-move: a
+      # capture is two physical moves, so there is a window where the captured
+      # piece is gone and the capturing piece has not landed. That position is
+      # not reachable by any legal move, so the decision ladder finds no match
+      # and the goal fails. Require the same FEN on this many consecutive frames
+      # before acting on it. Raise it if the arms still reach into the same
+      # squares; lower it only if reads become too slow.
+      fen_stable_count: 3
     arm_action:
       plugin: "bizon_behaviors/ArmPlugin"
       planning_time: 15.0

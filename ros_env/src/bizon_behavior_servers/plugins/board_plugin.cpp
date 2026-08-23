@@ -36,6 +36,14 @@ namespace bizon_behaviors
         }
         std::string debug_session_dir;
         node->get_parameter("debug_session_dir", debug_session_dir);
+
+        if (!node->has_parameter(behavior_name_ + ".fen_stable_count")) {
+            node->declare_parameter(behavior_name_ + ".fen_stable_count", fen_stable_count_);
+        }
+        node->get_parameter(behavior_name_ + ".fen_stable_count", fen_stable_count_);
+        if (fen_stable_count_ < 1) {
+            fen_stable_count_ = 1;
+        }
         DebugSession::instance().configure(debug_session_dir);
 
         // BoardPlugin is the only plugin that ever touches an image, so it
@@ -320,8 +328,26 @@ namespace bizon_behaviors
             }
         }
 
+        // Only publish a FEN the board has held still for. See pending_fen_ in
+        // the header for why a single frame is not trustworthy here.
+        if (results_ == pending_fen_) {
+            ++pending_fen_count_;
+        } else {
+            pending_fen_ = results_;
+            pending_fen_count_ = 1;
+        }
+
+        if (pending_fen_count_ < fen_stable_count_) {
+            RCLCPP_DEBUG(
+                node_.lock()->get_logger(), "FEN not settled yet (%d/%d): '%s'",
+                pending_fen_count_, fen_stable_count_, results_.c_str());
+            return;
+        }
+
         is_result_ready_.store(true);
-        RCLCPP_INFO(node_.lock()->get_logger(), "Inference complete, FEN: '%s'", results_.c_str());
+        RCLCPP_INFO(
+            node_.lock()->get_logger(), "Inference complete, FEN stable over %d frames: '%s'",
+            pending_fen_count_, results_.c_str());
         
     }
 
@@ -346,6 +372,8 @@ namespace bizon_behaviors
         is_black_side_ = (command->player_side == "black");
         is_camera_active_.store(true);
         is_result_ready_.store(false);
+        pending_fen_.clear();
+        pending_fen_count_ = 0;
         board_end_ = node_.lock()->now() + rclcpp::Duration(command->time);
         return ResultStatus{Status::SUCCEEDED};
     }

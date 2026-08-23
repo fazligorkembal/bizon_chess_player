@@ -2,6 +2,8 @@
 #define BIZON_BEHAVIOR_SERVERS__DEBUG_SESSION_HPP_
 
 #include <functional>
+#include <chrono>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -89,7 +91,19 @@ public:
 private:
   DebugSession() = default;
 
+  /// Labels that describe an expected transient rather than a fault. The board
+  /// is genuinely undetectable whenever an arm occludes it, which is most frames
+  /// of every move -- bundling those produced 3623 directories and 18 GB in one
+  /// game. They are counted in events.log and never given a directory.
+  static bool isExpectedTransient(const std::string & label);
+
+  /// A bundle costs ~5 MB of images, so the same label is only bundled once per
+  /// cooldown. Repeats in between are counted and reported, not written.
+  static constexpr std::chrono::seconds kBundleCooldown{30};
+
   mutable std::mutex mutex_;
+  std::map<std::string, std::chrono::steady_clock::time_point> last_bundle_at_;
+  std::map<std::string, int> suppressed_count_;
   std::string session_dir_;
   bool configured_{false};
   int error_counter_{0};

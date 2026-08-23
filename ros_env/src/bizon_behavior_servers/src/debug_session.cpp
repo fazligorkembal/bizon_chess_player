@@ -113,17 +113,50 @@ void DebugSession::registerImageDumpCallback(ImageDumpFn fn)
   image_dump_fn_ = std::move(fn);
 }
 
+bool DebugSession::isExpectedTransient(const std::string & label)
+{
+  // The camera cannot see the board while an arm is over it. That is the normal
+  // state for most of every move, not a fault worth 5 MB of evidence.
+  return label == "board_detect_failed";
+}
+
 std::string DebugSession::beginErrorBundle(const std::string & label)
 {
   std::string dir;
   int counter = 0;
+  int suppressed = 0;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!configured_) {
       return "";
     }
-    dir = session_dir_;
-    counter = ++error_counter_;
+
+    const auto now = std::chrono::steady_clock::now();
+    const auto it = last_bundle_at_.find(label);
+    const bool cooling = it != last_bundle_at_.end() && (now - it->second) < kBundleCooldown;
+
+    if (isExpectedTransient(label) || cooling) {
+      const int n = ++suppressed_count_[label];
+      // One line every 100 keeps the timeline honest about how often this is
+      // firing without the log becoming the thing that fills the disk.
+      if (n == 1 || n % 100 == 0) {
+        dir = session_dir_;
+      } else {
+        return "";
+      }
+      suppressed = n;
+    } else {
+      dir = session_dir_;
+      counter = ++error_counter_;
+      last_bundle_at_[label] = now;
+      suppressed = 0;
+    }
+  }
+
+  if (counter == 0) {
+    logEvent(
+      "error", "label=" + label + " suppressed (no bundle) count=" + std::to_string(suppressed));
+    return "";
   }
 
   const auto now = std::chrono::system_clock::now();
