@@ -32,10 +32,10 @@ TEST(BehaviorPluginXml, ArmPluginIsRegistered)
 
   const XMLElement * found = nullptr;
   for (const XMLElement * library = root->FirstChildElement("library"); library != nullptr;
-       library = library->NextSiblingElement("library"))
+    library = library->NextSiblingElement("library"))
   {
     for (const XMLElement * cls = library->FirstChildElement("class"); cls != nullptr;
-         cls = cls->NextSiblingElement("class"))
+      cls = cls->NextSiblingElement("class"))
     {
       const char * name = cls->Attribute("name");
       if (name != nullptr && std::string(name) == "bizon_behaviors/ArmPlugin") {

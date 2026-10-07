@@ -28,7 +28,7 @@ public:
   /// Terminate the engine and reap it. Safe to call when not running.
   void stop();
 
-  bool isRunning() const { return pid_ > 0; }
+  bool isRunning() const {return pid_ > 0;}
 
   /// Search `fen` to `depth` and return the bestmove token.
   /// Returns false on timeout, engine death, or a malformed reply.
@@ -63,7 +63,7 @@ public:
   /// threads at 1 and hash small so the engine does not contend with TensorRT.
   bool setOption(const std::string & name, const std::string & value);
 
-  const std::string & lastError() const { return last_error_; }
+  const std::string & lastError() const {return last_error_;}
 
 private:
   bool writeLine(const std::string & line);

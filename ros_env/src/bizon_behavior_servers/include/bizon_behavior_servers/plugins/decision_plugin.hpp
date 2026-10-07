@@ -54,7 +54,9 @@ private:
   std::string get_last_move_from_text();
   bool write_to_text_file(const std::string & fen);
   std::vector<std::string> possible_next_moves_from_valid_fen(const std::string & fen);
-  bool apply_move_to_fen(const std::string & base_fen, const std::string & move, std::string & fen_out);
+  bool apply_move_to_fen(
+    const std::string & base_fen, const std::string & move,
+    std::string & fen_out);
   std::string who_is_owner_of_move();
   // Commits fen_pending_ to the history file if the camera agrees with it,
   // either directly or one ply on. Returns true when the history was

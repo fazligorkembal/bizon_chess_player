@@ -24,57 +24,57 @@ public:
  * @brief A constructor for bizon_behavior_server::BehaviorServer
  * @param options Additional options to control creation of the node.
 */
-explicit BehaviorServer(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-~BehaviorServer();
+  explicit BehaviorServer(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  ~BehaviorServer();
 
 protected:
 /**
  * @brief Loads behavior plugins from parameter file
  * @return bool if successfully loaded the plugins
 */
-bool loadBehaviorPlugins();
+  bool loadBehaviorPlugins();
 
 /**
  * @brief configures behavior plugins
 */
-void configureBehaviorPlugins();
+  void configureBehaviorPlugins();
 
 /**
  * @brief configures behavior plugins
 */
-void setupResourcesForBehaviorPlugins();
+  void setupResourcesForBehaviorPlugins();
 
 /**
  * @brief Configure lifecycle server
 */
-bizon_util::CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  bizon_util::CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
 
 /**
  * @brief Activate lifecycle server
 */
-bizon_util::CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  bizon_util::CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
 
 /**
  * @brief Deactivate lifecycle server
 */
-bizon_util::CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  bizon_util::CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
 
 /**
  * @brief Cleanup lifecycle server
 */
-bizon_util::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  bizon_util::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
 
 /**
  * @brief Shutdown lifecycle server
 */
-bizon_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+  bizon_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
-pluginlib::ClassLoader<bizon_core::Behavior> plugin_loader_;
-std::vector<pluginlib::UniquePtr<bizon_core::Behavior>> behaviors_;
-std::vector<std::string> default_ids_;
-std::vector<std::string> default_types_;
-std::vector<std::string> behavior_ids_;
-std::vector<std::string> behavior_types_;
+  pluginlib::ClassLoader<bizon_core::Behavior> plugin_loader_;
+  std::vector<pluginlib::UniquePtr<bizon_core::Behavior>> behaviors_;
+  std::vector<std::string> default_ids_;
+  std::vector<std::string> default_types_;
+  std::vector<std::string> behavior_ids_;
+  std::vector<std::string> behavior_types_;
 
 };
 

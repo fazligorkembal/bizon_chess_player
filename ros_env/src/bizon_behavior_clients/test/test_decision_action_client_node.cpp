@@ -17,18 +17,18 @@ TEST(DecisionActionClientNode, XmlTagIsMakeDecisionClientAgainstDecisionAction)
 {
   BT::BehaviorTreeFactory factory;
   BT::NodeBuilder builder = [](const std::string & name, const BT::NodeConfiguration & config)
-  {
-    return std::make_unique<bizon_behavior_clients::DecisionActionClientNode>(
-      name, "decision_action", config);
-  };
+    {
+      return std::make_unique<bizon_behavior_clients::DecisionActionClientNode>(
+        name, "decision_action", config);
+    };
   factory.registerBuilder<bizon_behavior_clients::DecisionActionClientNode>(
     "MakeDecisionClient", builder);
 
   const auto & manifests = factory.manifests();
   ASSERT_NE(manifests.find("MakeDecisionClient"), manifests.end())
     << "chess_game.xml's <MakeDecisionClient> tag must stay registered -- "
-       "Task 5 keeps the XML tag name unchanged while moving the action name "
-       "to decision_action, precisely so chess_game.xml needs no edit.";
+    "Task 5 keeps the XML tag name unchanged while moving the action name "
+    "to decision_action, precisely so chess_game.xml needs no edit.";
 }
 
 // Structural guard for the port contract Step 8 of the task-5 brief and
@@ -41,15 +41,15 @@ TEST(DecisionActionClientNode, DeclaresEveryPortTheOldSyncActionNodeDid)
   const auto ports = bizon_behavior_clients::DecisionActionClientNode::providedPorts();
 
   auto expect_input = [&](const char * name) {
-    auto it = ports.find(name);
-    ASSERT_NE(it, ports.end()) << "missing input port: " << name;
-    EXPECT_EQ(it->second.direction(), BT::PortDirection::INPUT) << name;
-  };
+      auto it = ports.find(name);
+      ASSERT_NE(it, ports.end()) << "missing input port: " << name;
+      EXPECT_EQ(it->second.direction(), BT::PortDirection::INPUT) << name;
+    };
   auto expect_output = [&](const char * name) {
-    auto it = ports.find(name);
-    ASSERT_NE(it, ports.end()) << "missing output port: " << name;
-    EXPECT_EQ(it->second.direction(), BT::PortDirection::OUTPUT) << name;
-  };
+      auto it = ports.find(name);
+      ASSERT_NE(it, ports.end()) << "missing output port: " << name;
+      EXPECT_EQ(it->second.direction(), BT::PortDirection::OUTPUT) << name;
+    };
 
   expect_input("player_side");
   expect_input("fen");

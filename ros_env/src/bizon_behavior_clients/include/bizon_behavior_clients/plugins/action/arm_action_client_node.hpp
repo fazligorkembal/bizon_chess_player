@@ -25,17 +25,19 @@ public:
 
   static BT::PortsList providedPorts()
   {
-    return providedBasicPorts({
-      BT::InputPort<std::string>("player_side", "white or black"),
-      BT::InputPort<std::vector<double>>("target_joint_positions", "Arm joint targets"),
-      BT::InputPort<std::vector<double>>("target_hand_position", "Gripper finger targets"),
-      // hand_only lets a caller (e.g. the recovery subtree) command only the
-      // gripper, without ever reading or acting on target_joint_positions.
-      // This is the only way to open the gripper without first completing an
-      // arm move: moving first would drag a held piece across the board.
-      BT::InputPort<bool>("hand_only", false,
-        "Command only the gripper, leaving the arm stationary"),
-    });
+    return providedBasicPorts(
+      {
+        BT::InputPort<std::string>("player_side", "white or black"),
+        BT::InputPort<std::vector<double>>("target_joint_positions", "Arm joint targets"),
+        BT::InputPort<std::vector<double>>("target_hand_position", "Gripper finger targets"),
+        // hand_only lets a caller (e.g. the recovery subtree) command only the
+        // gripper, without ever reading or acting on target_joint_positions.
+        // This is the only way to open the gripper without first completing an
+        // arm move: moving first would drag a held piece across the board.
+        BT::InputPort<bool>(
+          "hand_only", false,
+          "Command only the gripper, leaving the arm stationary"),
+      });
   }
 };
 }  // namespace bizon_behavior_clients

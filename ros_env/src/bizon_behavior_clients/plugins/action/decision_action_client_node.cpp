@@ -75,10 +75,10 @@ BT::NodeStatus DecisionActionClientNode::on_cancelled()
 BT_REGISTER_NODES(factory)
 {
   BT::NodeBuilder builder = [](const std::string & name, const BT::NodeConfiguration & config)
-  {
-    return std::make_unique<bizon_behavior_clients::DecisionActionClientNode>(
-      name, "decision_action", config);
-  };
+    {
+      return std::make_unique<bizon_behavior_clients::DecisionActionClientNode>(
+        name, "decision_action", config);
+    };
   factory.registerBuilder<bizon_behavior_clients::DecisionActionClientNode>(
     "MakeDecisionClient", builder);
 }

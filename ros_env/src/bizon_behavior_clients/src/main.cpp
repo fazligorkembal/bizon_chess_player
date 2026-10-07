@@ -19,152 +19,149 @@
 
 namespace fs = boost::filesystem;
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
-    rclcpp::init(argc, argv);
-    rclcpp::NodeOptions node_options;
-    node_options.automatically_declare_parameters_from_overrides(true);
-    auto nh = std::make_shared<rclcpp::Node>("bizon_behavior_tree", node_options);
+  rclcpp::init(argc, argv);
+  rclcpp::NodeOptions node_options;
+  node_options.automatically_declare_parameters_from_overrides(true);
+  auto nh = std::make_shared<rclcpp::Node>("bizon_behavior_tree", node_options);
 
-    // debug_session_dir is passed down by bizon_player.launch.py alongside
-    // the same value it hands to behavior_server (see
-    // bizon_lifecycle_dev.launch.py). The client itself does not write into
-    // it today -- events.log/rosout.log are all server-side -- but the
-    // maintainer wants every process in the game agreeing on one directory,
-    // and this is where a future client-side debug artifact would look.
-    if (!nh->has_parameter("debug_session_dir")) {
-        nh->declare_parameter("debug_session_dir", std::string(""));
-    }
-    std::string debug_session_dir = nh->get_parameter("debug_session_dir").as_string();
-    if (!debug_session_dir.empty()) {
-        RCLCPP_INFO(nh->get_logger(), "Debug session directory: %s", debug_session_dir.c_str());
-    }
+  // debug_session_dir is passed down by bizon_player.launch.py alongside
+  // the same value it hands to behavior_server (see
+  // bizon_lifecycle_dev.launch.py). The client itself does not write into
+  // it today -- events.log/rosout.log are all server-side -- but the
+  // maintainer wants every process in the game agreeing on one directory,
+  // and this is where a future client-side debug artifact would look.
+  if (!nh->has_parameter("debug_session_dir")) {
+    nh->declare_parameter("debug_session_dir", std::string(""));
+  }
+  std::string debug_session_dir = nh->get_parameter("debug_session_dir").as_string();
+  if (!debug_session_dir.empty()) {
+    RCLCPP_INFO(nh->get_logger(), "Debug session directory: %s", debug_session_dir.c_str());
+  }
 
-    BT::BehaviorTreeFactory factory_;
-    std::vector<std::string> plugin_lib_names_ = {
-        "wait_action_client_node",
-        "arm_action_client_node",
-        "run_until_success_node",
-        "board_action_isaac_client_node",
-        "decision_action_client_node",
-        "condition_node",
-        "foreach_node",
-        "recovery_node",
-        "is_system_active_node"
-    };
+  BT::BehaviorTreeFactory factory_;
+  std::vector<std::string> plugin_lib_names_ = {
+    "wait_action_client_node",
+    "arm_action_client_node",
+    "run_until_success_node",
+    "board_action_isaac_client_node",
+    "decision_action_client_node",
+    "condition_node",
+    "foreach_node",
+    "recovery_node",
+    "is_system_active_node"
+  };
 
-    RCLCPP_INFO(rclcpp::get_logger("main"), "Loading BT plugin libraries...");
-    RCLCPP_INFO(rclcpp::get_logger("main"), "Namespace: %s", nh->get_namespace());
-    RCLCPP_INFO(rclcpp::get_logger("main"), "Number of plugins to load: %zu", plugin_lib_names_.size());
+  RCLCPP_INFO(rclcpp::get_logger("main"), "Loading BT plugin libraries...");
+  RCLCPP_INFO(rclcpp::get_logger("main"), "Namespace: %s", nh->get_namespace());
+  RCLCPP_INFO(
+    rclcpp::get_logger("main"), "Number of plugins to load: %zu",
+    plugin_lib_names_.size());
 
-    fs::path bt_file = fs::path(ament_index_cpp::get_package_share_directory("bizon_behavior_clients")) / "behavior_trees" / "chess_game.xml";
-    BT::Blackboard::Ptr blackboard;
-    BT::Tree tree;
+  fs::path bt_file =
+    fs::path(ament_index_cpp::get_package_share_directory("bizon_behavior_clients")) /
+    "behavior_trees" / "chess_game.xml";
+  BT::Blackboard::Ptr blackboard;
+  BT::Tree tree;
 
-    RCLCPP_INFO(rclcpp::get_logger("main"), "Behavior Tree XML file: %s", bt_file.c_str());
+  RCLCPP_INFO(rclcpp::get_logger("main"), "Behavior Tree XML file: %s", bt_file.c_str());
 
-    for (const auto &lib_name : plugin_lib_names_)
+  for (const auto & lib_name : plugin_lib_names_) {
+    factory_.registerFromPlugin(BT::SharedLibrary::getOSName(lib_name));
+    RCLCPP_INFO(rclcpp::get_logger("main"), "Registered plugin: %s", lib_name.c_str());
+  }
+
+  std::ifstream xml_file(bt_file.string());
+  if (!xml_file.good()) {
+    RCLCPP_ERROR(rclcpp::get_logger("main"), "Failed to open BT XML file: %s", bt_file.c_str());
+  } else {
+    RCLCPP_INFO(rclcpp::get_logger("main"), "Creating Behavior Tree...");
+  }
+
+  auto xml_string = std::string(
+    std::istreambuf_iterator<char>(xml_file),
+    std::istreambuf_iterator<char>());
+
+  blackboard = BT::Blackboard::create();
+
+  std_msgs::msg::Int64 input_order;
+  input_order.data = 10;
+
+  blackboard->set<std_msgs::msg::Int64>("input_order", input_order);
+  blackboard->set<rclcpp::Node::SharedPtr>("node", nh);
+  blackboard->set<std::chrono::milliseconds>("bt_loop_duration", std::chrono::milliseconds(10));
+  blackboard->set<std::chrono::milliseconds>("server_timeout", std::chrono::milliseconds(1000));
+
+  std::string ns = nh->get_namespace();
+  std::string player_side = (ns == "/bizon3" || ns == "bizon3") ? "black" : "white";
+  blackboard->set<std::string>("player_side", player_side);
+  RCLCPP_INFO(nh->get_logger(), "Namespace: %s, Player side: %s", ns.c_str(), player_side.c_str());
+
+  // Recovery waypoint. The piece is released in place first (RecoverArm's
+  // hand_only step, no joint target involved), then the arm lifts clear of
+  // the board on this pose before homing. Values match the joint layout
+  // used throughout the trees: {rev1, pris1, rev2, rev3}, with pris1 = 0.0
+  // meaning fully retracted.
+  blackboard->set<std::string>("recovery_lift_position", "-1.5807;0.0;1.5807;0.0");
+
+  // CheckGameOver reads move_type ({move_type}) as soon as the very first
+  // tick of PlayUntilGameOver runs, via
+  // Inverter(ConditionNode CheckGameOver). Normally MakeDecisionClient
+  // writes move_type first, inside RecoveryNode's work branch. But the
+  // software stop guard (PlayMoveOrWaitForSystemActive, see chess_game.xml)
+  // can
+  // short-circuit past RecoveryNode entirely -- on a PAUSE before the
+  // first move, or simply because autostart has not yet activated
+  // behavior_server when this tree starts ticking -- so CheckGameOver can
+  // be reached with move_type never written at all. ConditionNode::tick()
+  // throws BT::RuntimeError when a required input port has no blackboard
+  // entry, and nothing catches it around tickWhileRunning() below, so an
+  // unseeded move_type crashes the whole process on exactly the paths the
+  // stop guard is there to make safe. Seeding it empty here is enough:
+  // "" never equals CheckGameOver's param2 ("killking"), so it reads as
+  // "game not over", the same as any other move_type that isn't the win
+  // condition.
+  blackboard->set<std::string>("move_type", "");
+  try {
+    factory_.registerBehaviorTreeFromText(xml_string);
+    tree = factory_.createTree("MainTree", blackboard);
+  } catch (BT::RuntimeError & e) {
+    std::cout << "Failed to create tree: " << e.what() << std::endl;
+  }
+
+  std::unique_ptr<BT::Groot2Publisher> publisher;
+  if (player_side == "white") {
+    publisher = std::make_unique<BT::Groot2Publisher>(tree, 1667);
+  }
+
+  std::unique_ptr<std::thread> thread_;
+  rclcpp::Executor::SharedPtr executor_ =
+    std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+
+  thread_ = std::make_unique<std::thread>(
+    [&]()
     {
-        factory_.registerFromPlugin(BT::SharedLibrary::getOSName(lib_name));
-        RCLCPP_INFO(rclcpp::get_logger("main"), "Registered plugin: %s", lib_name.c_str());
-    }
+      executor_->add_node(nh);
+      executor_->spin();
+      executor_->remove_node(nh);
+    });
 
-    std::ifstream xml_file(bt_file.string());
-    if (!xml_file.good())
-    {
-        RCLCPP_ERROR(rclcpp::get_logger("main"), "Failed to open BT XML file: %s", bt_file.c_str());
-    }
-    else
-    {
-        RCLCPP_INFO(rclcpp::get_logger("main"), "Creating Behavior Tree...");
-    }
+  // tickWhileRunning() already loops internally until the tree reaches a
+  // terminal status, so one call plays the whole game: MainTree's
+  // KeepRunningUntilFailure keeps ticking PlayUntilGameOver for every move,
+  // and only stops once CheckGameOver reports the game is over (SUCCESS) or
+  // RecoveryNode exhausts its retries on a fault it couldn't recover from
+  // (FAILURE).
+  BT::NodeStatus status = tree.tickWhileRunning();
+  std::cout << "Tree finished with: " << status << std::endl;
 
-    auto xml_string = std::string(
-        std::istreambuf_iterator<char>(xml_file),
-        std::istreambuf_iterator<char>());
+  std::cout << "Shutting down..." << std::endl;
 
-    blackboard = BT::Blackboard::create();
+  executor_->cancel();
+  thread_->join();
 
-    std_msgs::msg::Int64 input_order;
-    input_order.data = 10;
+  rclcpp::shutdown();
 
-    blackboard->set<std_msgs::msg::Int64>("input_order", input_order);
-    blackboard->set<rclcpp::Node::SharedPtr>("node", nh);
-    blackboard->set<std::chrono::milliseconds>("bt_loop_duration", std::chrono::milliseconds(10));
-    blackboard->set<std::chrono::milliseconds>("server_timeout", std::chrono::milliseconds(1000));
-
-    std::string ns = nh->get_namespace();
-    std::string player_side = (ns == "/bizon3" || ns == "bizon3") ? "black" : "white";
-    blackboard->set<std::string>("player_side", player_side);
-    RCLCPP_INFO(nh->get_logger(), "Namespace: %s, Player side: %s", ns.c_str(), player_side.c_str());
-
-    // Recovery waypoint. The piece is released in place first (RecoverArm's
-    // hand_only step, no joint target involved), then the arm lifts clear of
-    // the board on this pose before homing. Values match the joint layout
-    // used throughout the trees: {rev1, pris1, rev2, rev3}, with pris1 = 0.0
-    // meaning fully retracted.
-    blackboard->set<std::string>("recovery_lift_position", "-1.5807;0.0;1.5807;0.0");
-
-    // CheckGameOver reads move_type ({move_type}) as soon as the very first
-    // tick of PlayUntilGameOver runs, via
-    // Inverter(ConditionNode CheckGameOver). Normally MakeDecisionClient
-    // writes move_type first, inside RecoveryNode's work branch. But the
-    // software stop guard (PlayMoveOrWaitForSystemActive, see chess_game.xml)
-    // can
-    // short-circuit past RecoveryNode entirely -- on a PAUSE before the
-    // first move, or simply because autostart has not yet activated
-    // behavior_server when this tree starts ticking -- so CheckGameOver can
-    // be reached with move_type never written at all. ConditionNode::tick()
-    // throws BT::RuntimeError when a required input port has no blackboard
-    // entry, and nothing catches it around tickWhileRunning() below, so an
-    // unseeded move_type crashes the whole process on exactly the paths the
-    // stop guard is there to make safe. Seeding it empty here is enough:
-    // "" never equals CheckGameOver's param2 ("killking"), so it reads as
-    // "game not over", the same as any other move_type that isn't the win
-    // condition.
-    blackboard->set<std::string>("move_type", "");
-    try
-    {
-        factory_.registerBehaviorTreeFromText(xml_string);
-        tree = factory_.createTree("MainTree", blackboard);
-    }
-    catch (BT::RuntimeError &e)
-    {
-        std::cout << "Failed to create tree: " << e.what() << std::endl;
-    }
-
-    std::unique_ptr<BT::Groot2Publisher> publisher;
-    if (player_side == "white")
-    {
-        publisher = std::make_unique<BT::Groot2Publisher>(tree, 1667);
-    }
-
-    std::unique_ptr<std::thread> thread_;
-    rclcpp::Executor::SharedPtr executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
-
-    thread_ = std::make_unique<std::thread>(
-        [&]()
-        {
-            executor_->add_node(nh);
-            executor_->spin();
-            executor_->remove_node(nh);
-        });
-
-    // tickWhileRunning() already loops internally until the tree reaches a
-    // terminal status, so one call plays the whole game: MainTree's
-    // KeepRunningUntilFailure keeps ticking PlayUntilGameOver for every move,
-    // and only stops once CheckGameOver reports the game is over (SUCCESS) or
-    // RecoveryNode exhausts its retries on a fault it couldn't recover from
-    // (FAILURE).
-    BT::NodeStatus status = tree.tickWhileRunning();
-    std::cout << "Tree finished with: " << status << std::endl;
-
-    std::cout << "Shutting down..." << std::endl;
-
-    executor_->cancel();
-    thread_->join();
-
-    rclcpp::shutdown();
-
-    return 0;
+  return 0;
 }

@@ -46,7 +46,10 @@ TEST(DebugSessionFormat, LogLineShape)
 TEST(DebugSessionFormat, BundleDirNamePadsCounterAndUsesTimeOfDay)
 {
   EXPECT_EQ(formatBundleDirName(3, "fen_mismatch", fixedTime()), "003_fen_mismatch_15-43-02");
-  EXPECT_EQ(formatBundleDirName(42, "board_detect_failed", fixedTime()), "042_board_detect_failed_15-43-02");
+  EXPECT_EQ(
+    formatBundleDirName(
+      42, "board_detect_failed",
+      fixedTime()), "042_board_detect_failed_15-43-02");
 }
 
 TEST(DebugSessionFormat, BundleDirNameCounterGrowsPastThreeDigitsInsteadOfBreaking)
@@ -57,12 +60,12 @@ TEST(DebugSessionFormat, BundleDirNameCounterGrowsPastThreeDigitsInsteadOfBreaki
 TEST(DebugSessionFormat, SquareForCellIndexWhiteSideIsIdentityOrder)
 {
   // index 0 == a8 (top-left of a standard FEN board field), index 63 == h1.
-  EXPECT_EQ(squareForCellIndex(0, /*black_side=*/false), "a8");
-  EXPECT_EQ(squareForCellIndex(7, /*black_side=*/false), "h8");
-  EXPECT_EQ(squareForCellIndex(56, /*black_side=*/false), "a1");
-  EXPECT_EQ(squareForCellIndex(63, /*black_side=*/false), "h1");
+  EXPECT_EQ(squareForCellIndex(0, /*black_side=*/ false), "a8");
+  EXPECT_EQ(squareForCellIndex(7, /*black_side=*/ false), "h8");
+  EXPECT_EQ(squareForCellIndex(56, /*black_side=*/ false), "a1");
+  EXPECT_EQ(squareForCellIndex(63, /*black_side=*/ false), "h1");
   // one arbitrary interior square: index 28 -> rank_from_top 3, file 4 -> e5
-  EXPECT_EQ(squareForCellIndex(28, /*black_side=*/false), "e5");
+  EXPECT_EQ(squareForCellIndex(28, /*black_side=*/ false), "e5");
 }
 
 TEST(DebugSessionFormat, SquareForCellIndexBlackSideIsReversed)
@@ -70,8 +73,8 @@ TEST(DebugSessionFormat, SquareForCellIndexBlackSideIsReversed)
   // Mirrors BoardPlugin::cameraCallback's std::reverse() of class_names for
   // the black-side robot: cell_images_[0] on that robot ends up labelling
   // board index 63 (h1), not a8.
-  EXPECT_EQ(squareForCellIndex(0, /*black_side=*/true), "h1");
-  EXPECT_EQ(squareForCellIndex(63, /*black_side=*/true), "a8");
+  EXPECT_EQ(squareForCellIndex(0, /*black_side=*/ true), "h1");
+  EXPECT_EQ(squareForCellIndex(63, /*black_side=*/ true), "a8");
 }
 
 TEST(DebugSessionFormat, FenSquareDiffEmptyWhenIdentical)

@@ -142,7 +142,7 @@ bool StockfishProcess::bestMove(
   const auto deadline = std::chrono::steady_clock::now() + timeout;
 
   if (!writeLine("position fen " + fen) ||
-      !writeLine("go depth " + std::to_string(depth)))
+    !writeLine("go depth " + std::to_string(depth)))
   {
     return false;
   }
@@ -282,7 +282,7 @@ bool StockfishProcess::writeLine(const std::string & line)
   while (written < payload.size()) {
     const ssize_t n = ::write(to_engine_, payload.data() + written, payload.size() - written);
     if (n < 0) {
-      if (errno == EINTR) { continue; }
+      if (errno == EINTR) {continue;}
       last_error_ = std::string("write() failed: ") + std::strerror(errno);
       return false;
     }
@@ -334,7 +334,7 @@ bool StockfishProcess::readUntil(
 
     const int pr = ::poll(&pfd, 1, static_cast<int>(remaining));
     if (pr < 0) {
-      if (errno == EINTR) { continue; }
+      if (errno == EINTR) {continue;}
       last_error_ = std::string("poll() failed: ") + std::strerror(errno);
       return false;
     }
@@ -345,7 +345,7 @@ bool StockfishProcess::readUntil(
 
     const ssize_t n = ::read(from_engine_, buffer, sizeof(buffer));
     if (n < 0) {
-      if (errno == EINTR) { continue; }
+      if (errno == EINTR) {continue;}
       last_error_ = std::string("read() failed: ") + std::strerror(errno);
       return false;
     }

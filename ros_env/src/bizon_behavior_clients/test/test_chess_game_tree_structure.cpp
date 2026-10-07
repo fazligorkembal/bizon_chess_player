@@ -34,7 +34,7 @@ using tinyxml2::XMLElement;
 const XMLElement * findDescendantByTag(const XMLElement * root, const char * tag_name)
 {
   for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
-       child = child->NextSiblingElement())
+    child = child->NextSiblingElement())
   {
     if (std::string(child->Name()) == tag_name) {
       return child;
@@ -54,7 +54,7 @@ void collectNameAttributes(const XMLElement * root, std::vector<std::string> & o
     out.emplace_back(name);
   }
   for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
-       child = child->NextSiblingElement())
+    child = child->NextSiblingElement())
   {
     collectNameAttributes(child, out);
   }
@@ -76,7 +76,7 @@ int countDescendantsByTag(const XMLElement * root, const char * tag_name)
 {
   int count = (std::string(root->Name()) == tag_name) ? 1 : 0;
   for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
-       child = child->NextSiblingElement())
+    child = child->NextSiblingElement())
   {
     count += countDescendantsByTag(child, tag_name);
   }
@@ -95,7 +95,7 @@ const XMLElement * findByTagAndName(
     return root;
   }
   for (const XMLElement * child = root->FirstChildElement(); child != nullptr;
-       child = child->NextSiblingElement())
+    child = child->NextSiblingElement())
   {
     if (const XMLElement * found = findByTagAndName(child, tag_name, name_attr)) {
       return found;
@@ -124,7 +124,7 @@ TEST(ChessGameTreeStructure, CheckGameOverIsNotInsideRecoveryNodeWorkBranch)
   // Find <BehaviorTree ID="MainTree">.
   const XMLElement * main_tree = nullptr;
   for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
-       bt = bt->NextSiblingElement("BehaviorTree"))
+    bt = bt->NextSiblingElement("BehaviorTree"))
   {
     const char * id = bt->Attribute("ID");
     if (id != nullptr && std::string(id) == "MainTree") {
@@ -147,8 +147,8 @@ TEST(ChessGameTreeStructure, CheckGameOverIsNotInsideRecoveryNodeWorkBranch)
   collectNameAttributes(work_branch, work_branch_names);
   EXPECT_FALSE(contains(work_branch_names, "CheckGameOver"))
     << "CheckGameOver must not be a descendant of RecoveryNode's work branch: "
-       "a successful move would then fail the work branch, spend a retry, "
-       "and run the recovery subtree after every move.";
+    "a successful move would then fail the work branch, spend a retry, "
+    "and run the recovery subtree after every move.";
 
   // Guard against the check disappearing entirely rather than moving out:
   // CheckGameOver must still be present somewhere in MainTree.
@@ -176,7 +176,7 @@ TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
 
   const XMLElement * main_tree = nullptr;
   for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
-       bt = bt->NextSiblingElement("BehaviorTree"))
+    bt = bt->NextSiblingElement("BehaviorTree"))
   {
     const char * id = bt->Attribute("ID");
     if (id != nullptr && std::string(id) == "MainTree") {
@@ -189,7 +189,7 @@ TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
   const XMLElement * guard = findByTagAndName(main_tree, "Fallback", "MoveOrWaitForOpponent");
   ASSERT_NE(guard, nullptr)
     << "MainTree has no <Fallback name=\"MoveOrWaitForOpponent\">: the move subtree "
-       "is unguarded, so a waiting tick would run Foreach with move_count 0 and fail.";
+    "is unguarded, so a waiting tick would run Foreach with move_count 0 and fail.";
 
   // First child must be the wait check, so a waiting tick short-circuits before
   // any arm motion is planned.
@@ -201,7 +201,7 @@ TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
   EXPECT_EQ(std::string(wait_check->Attribute("param1")), "{move_type}");
   EXPECT_EQ(std::string(wait_check->Attribute("param2")), "wait")
     << "the guard must compare move_type against the literal \"wait\" that "
-       "MakeDecisionClient writes when it is the opponent's turn";
+    "MakeDecisionClient writes when it is the opponent's turn";
 
   // The move loop must live inside that guard, not beside it.
   const XMLElement * move_loop = findByTagAndName(guard, "Foreach", "MoveLoop");
@@ -240,7 +240,7 @@ TEST(ChessGameTreeStructure, IsSystemActiveIsNotInsideRecoveryNodeWorkBranch)
 
   const XMLElement * main_tree = nullptr;
   for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
-       bt = bt->NextSiblingElement("BehaviorTree"))
+    bt = bt->NextSiblingElement("BehaviorTree"))
   {
     const char * id = bt->Attribute("ID");
     if (id != nullptr && std::string(id) == "MainTree") {
@@ -261,9 +261,9 @@ TEST(ChessGameTreeStructure, IsSystemActiveIsNotInsideRecoveryNodeWorkBranch)
 
   EXPECT_EQ(findDescendantByTag(work_branch, "IsSystemActive"), nullptr)
     << "IsSystemActive must not be inside RecoveryNode's work branch: a paused "
-       "system would then read as a fault, and recovery -- which also needs the "
-       "deactivated behavior_server -- would fail too, burning all retries and "
-       "ending the tree with nothing left for a RESUME to act on.";
+    "system would then read as a fault, and recovery -- which also needs the "
+    "deactivated behavior_server -- would fail too, burning all retries and "
+    "ending the tree with nothing left for a RESUME to act on.";
 }
 
 TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
@@ -276,7 +276,7 @@ TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
 
   const XMLElement * main_tree = nullptr;
   for (const XMLElement * bt = root->FirstChildElement("BehaviorTree"); bt != nullptr;
-       bt = bt->NextSiblingElement("BehaviorTree"))
+    bt = bt->NextSiblingElement("BehaviorTree"))
   {
     const char * id = bt->Attribute("ID");
     if (id != nullptr && std::string(id) == "MainTree") {
@@ -290,11 +290,11 @@ TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
     findByTagAndName(main_tree, "ReactiveFallback", "PlayMoveOrWaitForSystemActive");
   ASSERT_NE(guard, nullptr)
     << "MainTree has no <ReactiveFallback name=\"PlayMoveOrWaitForSystemActive\">: "
-       "without it RecoveryNode is reachable unconditionally, regardless of system "
-       "state. It must specifically be a ReactiveFallback, not a plain Fallback: a "
-       "plain Fallback never re-ticks this guard once RecoveryNode starts running, "
-       "so a PAUSE arriving mid-move would go unnoticed until the move finishes on "
-       "its own (see test_reactive_guard_halts_running_work.cpp).";
+    "without it RecoveryNode is reachable unconditionally, regardless of system "
+    "state. It must specifically be a ReactiveFallback, not a plain Fallback: a "
+    "plain Fallback never re-ticks this guard once RecoveryNode starts running, "
+    "so a PAUSE arriving mid-move would go unnoticed until the move finishes on "
+    "its own (see test_reactive_guard_halts_running_work.cpp).";
 
   // First branch: the paused check. It must succeed exactly while the system
   // is inactive (Inverter of IsSystemActive), so the fallback short-circuits
@@ -303,14 +303,14 @@ TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
   ASSERT_NE(guard_branch, nullptr) << "the guard fallback has no children";
   EXPECT_EQ(std::string(guard_branch->Name()), "Inverter")
     << "the guard fallback's first child must invert IsSystemActive, so it "
-       "SUCCEEDs -- short-circuiting the fallback -- exactly while the system "
-       "is paused";
+    "SUCCEEDs -- short-circuiting the fallback -- exactly while the system "
+    "is paused";
   EXPECT_NE(findDescendantByTag(guard_branch, "IsSystemActive"), nullptr)
     << "the guard fallback's first child must wrap IsSystemActive";
   EXPECT_EQ(findDescendantByTag(guard_branch, "RecoveryNode"), nullptr)
     << "RecoveryNode must not be reachable from the guard branch itself: a "
-       "paused tick that satisfies the guard must never reach RecoveryNode, "
-       "let alone its recovery subtree.";
+    "paused tick that satisfies the guard must never reach RecoveryNode, "
+    "let alone its recovery subtree.";
 
   // Second branch: the real work, reached only when the first branch fails
   // (system active). RecoveryNode -- and everything it protects -- must live
@@ -339,5 +339,5 @@ TEST(ChessGameTreeStructure, PausedSystemNeverTicksRecoveryNodeOrAnArmGoal)
   EXPECT_EQ(total_arm_goals, guarded_arm_goals)
     << total_arm_goals - guarded_arm_goals << " of " << total_arm_goals
     << " ArmActionClient node(s) in MainTree sit outside the guarded RecoveryNode "
-       "subtree, and so would still be reachable while the system is paused.";
+    "subtree, and so would still be reachable while the system is paused.";
 }

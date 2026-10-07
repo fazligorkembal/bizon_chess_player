@@ -33,46 +33,50 @@ public:
 
   static BT::PortsList providedPorts()
   {
-    return providedBasicPorts({
-      BT::InputPort<std::string>("player_side", "white or black"),
-      BT::InputPort<std::string>("fen", "Current board FEN string"),
-      BT::OutputPort<std::string>(
-        "move_type", "Type of the move: straight, capture, en_passant, castle, promotion, "
-        "promotion_capture, save, killking, wait"),
-      BT::OutputPort<int>("move_count", "Number of moves made"),
-      BT::OutputPort<std::vector<double>>("hand_open_position", "Hand open position"),
-      BT::OutputPort<std::vector<double>>("hand_close_position", "Hand close position"),
-      BT::OutputPort<std::vector<double>>("move_from1", "The move's source joint angles"),
-      BT::OutputPort<std::vector<double>>(
-        "move_from_down1", "The move's source with downward offset joint angles"),
-      BT::OutputPort<std::vector<double>>("move_to1", "The move's destination joint angles"),
-      BT::OutputPort<std::vector<double>>(
-        "move_to_down1", "The move's destination with downward offset joint angles"),
-      BT::OutputPort<std::vector<double>>(
-        "move_from2", "The move's source joint angles for second piece in case of castling move"),
-      BT::OutputPort<std::vector<double>>(
-        "move_from_down2",
-        "The move's source with downward offset joint angles for second piece in case of "
-        "castling move"),
-      BT::OutputPort<std::vector<double>>(
-        "move_to2", "The move's destination joint angles for second piece in case of castling move"),
-      BT::OutputPort<std::vector<double>>(
-        "move_to_down2",
-        "The move's destination with downward offset joint angles for second piece in case of "
-        "castling move"),
-      BT::OutputPort<std::vector<double>>(
-        "move_from3", "The move's source joint angles for third piece in case of promotion capture"),
-      BT::OutputPort<std::vector<double>>(
-        "move_from_down3",
-        "The move's source with downward offset joint angles for third piece in case of "
-        "promotion capture"),
-      BT::OutputPort<std::vector<double>>(
-        "move_to3", "The move's destination joint angles for third piece in case of promotion capture"),
-      BT::OutputPort<std::vector<double>>(
-        "move_to_down3",
-        "The move's destination with downward offset joint angles for third piece in case of "
-        "promotion capture"),
-    });
+    return providedBasicPorts(
+      {
+        BT::InputPort<std::string>("player_side", "white or black"),
+        BT::InputPort<std::string>("fen", "Current board FEN string"),
+        BT::OutputPort<std::string>(
+          "move_type", "Type of the move: straight, capture, en_passant, castle, promotion, "
+          "promotion_capture, save, killking, wait"),
+        BT::OutputPort<int>("move_count", "Number of moves made"),
+        BT::OutputPort<std::vector<double>>("hand_open_position", "Hand open position"),
+        BT::OutputPort<std::vector<double>>("hand_close_position", "Hand close position"),
+        BT::OutputPort<std::vector<double>>("move_from1", "The move's source joint angles"),
+        BT::OutputPort<std::vector<double>>(
+          "move_from_down1", "The move's source with downward offset joint angles"),
+        BT::OutputPort<std::vector<double>>("move_to1", "The move's destination joint angles"),
+        BT::OutputPort<std::vector<double>>(
+          "move_to_down1", "The move's destination with downward offset joint angles"),
+        BT::OutputPort<std::vector<double>>(
+          "move_from2", "The move's source joint angles for second piece in case of castling move"),
+        BT::OutputPort<std::vector<double>>(
+          "move_from_down2",
+          "The move's source with downward offset joint angles for second piece in case of "
+          "castling move"),
+        BT::OutputPort<std::vector<double>>(
+          "move_to2",
+          "The move's destination joint angles for second piece in case of castling move"),
+        BT::OutputPort<std::vector<double>>(
+          "move_to_down2",
+          "The move's destination with downward offset joint angles for second piece in case of "
+          "castling move"),
+        BT::OutputPort<std::vector<double>>(
+          "move_from3",
+          "The move's source joint angles for third piece in case of promotion capture"),
+        BT::OutputPort<std::vector<double>>(
+          "move_from_down3",
+          "The move's source with downward offset joint angles for third piece in case of "
+          "promotion capture"),
+        BT::OutputPort<std::vector<double>>(
+          "move_to3",
+          "The move's destination joint angles for third piece in case of promotion capture"),
+        BT::OutputPort<std::vector<double>>(
+          "move_to_down3",
+          "The move's destination with downward offset joint angles for third piece in case of "
+          "promotion capture"),
+      });
   }
 };
 }  // namespace bizon_behavior_clients

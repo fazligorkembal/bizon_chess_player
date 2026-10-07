@@ -80,7 +80,7 @@ ResultStatus ArmPlugin::onRun(const std::shared_ptr<const ArmAction::Goal> comma
       node->get_logger(), "[%s] hand_only goal: arm left stationary", behavior_name_.c_str());
 
     move_group_hand_->setJointValueTarget(target_hand_position_);
-    future_hand_ = std::async(std::launch::async, [this]() { return move_group_hand_->move(); });
+    future_hand_ = std::async(std::launch::async, [this]() {return move_group_hand_->move();});
     phase_ = Phase::HAND_MOVING;
 
     return ResultStatus{Status::SUCCEEDED, 0};
@@ -97,7 +97,7 @@ ResultStatus ArmPlugin::onRun(const std::shared_ptr<const ArmAction::Goal> comma
   }
 
   move_group_arm_->setJointValueTarget(command->target_joint_positions);
-  future_arm_ = std::async(std::launch::async, [this]() { return move_group_arm_->move(); });
+  future_arm_ = std::async(std::launch::async, [this]() {return move_group_arm_->move();});
   phase_ = Phase::ARM_MOVING;
 
   return ResultStatus{Status::SUCCEEDED, 0};
@@ -113,12 +113,14 @@ ResultStatus ArmPlugin::onCycleUpdate()
     }
     const auto result = future_arm_.get();
     if (result != moveit::core::MoveItErrorCode::SUCCESS) {
-      RCLCPP_ERROR(node->get_logger(), "[%s] arm move failed: %d", behavior_name_.c_str(), result.val);
+      RCLCPP_ERROR(
+        node->get_logger(), "[%s] arm move failed: %d",
+        behavior_name_.c_str(), result.val);
       return ResultStatus{Status::FAILED, static_cast<uint16_t>(-result.val)};
     }
 
     move_group_hand_->setJointValueTarget(target_hand_position_);
-    future_hand_ = std::async(std::launch::async, [this]() { return move_group_hand_->move(); });
+    future_hand_ = std::async(std::launch::async, [this]() {return move_group_hand_->move();});
     phase_ = Phase::HAND_MOVING;
     return ResultStatus{Status::RUNNING, 0};
   }
@@ -132,7 +134,9 @@ ResultStatus ArmPlugin::onCycleUpdate()
   }
   const auto result = future_hand_.get();
   if (result != moveit::core::MoveItErrorCode::SUCCESS) {
-    RCLCPP_ERROR(node->get_logger(), "[%s] hand move failed: %d", behavior_name_.c_str(), result.val);
+    RCLCPP_ERROR(
+      node->get_logger(), "[%s] hand move failed: %d", behavior_name_.c_str(),
+      result.val);
     return ResultStatus{Status::FAILED, static_cast<uint16_t>(-result.val)};
   }
 

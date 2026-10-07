@@ -3,33 +3,35 @@
 #include <thread>
 
 inline bool calcula_joint_angles(
-    float x, float y,
-    float l1, float l2,
-    float &q1, float &q2)
+  float x, float y,
+  float l1, float l2,
+  float & q1, float & q2)
 {
-    float r2 = x*x + y*y;
+  float r2 = x * x + y * y;
 
-    float D = (r2 - l1*l1 - l2*l2) / (2.0f * l1 * l2);
+  float D = (r2 - l1 * l1 - l2 * l2) / (2.0f * l1 * l2);
 
-    // ---- KRİTİK SATIR ----
-    D = std::clamp(D, -1.0f, 1.0f);
+  // ---- KRİTİK SATIR ----
+  D = std::clamp(D, -1.0f, 1.0f);
 
-    float inside = 1.0f - D*D;
+  float inside = 1.0f - D * D;
 
-    // numerical safety
-    if (inside < 0.0f)
-        inside = 0.0f;
+  // numerical safety
+  if (inside < 0.0f) {
+    inside = 0.0f;
+  }
 
-    float s = std::sqrt(inside);
+  float s = std::sqrt(inside);
 
-    q2 = std::atan2(s, D);
-    q1 = std::atan2(y, x) - std::atan2(l2 * std::sin(q2),
-                                       l1 + l2 * std::cos(q2));
+  q2 = std::atan2(s, D);
+  q1 = std::atan2(y, x) - std::atan2(
+    l2 * std::sin(q2),
+    l1 + l2 * std::cos(q2));
 
-    return true;
+  return true;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
 
@@ -40,28 +42,30 @@ int main(int argc, char **argv)
   float l2 = 0.18f;
 
   auto node = rclcpp::Node::make_shared(
-      "first_app_node",
-      node_options);
+    "first_app_node",
+    node_options);
 
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);
-  std::thread([&executor]()
-              { executor.spin(); })
-      .detach();
+  std::thread(
+    [&executor]()
+    {executor.spin();})
+  .detach();
 
-  RCLCPP_INFO(node->get_logger(),
-              "Node namespace: %s", node->get_namespace());
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Node namespace: %s", node->get_namespace());
 
   moveit::planning_interface::MoveGroupInterface::Options options(
-      "arm_group",
-      "robot_description",
-      node->get_namespace()
+    "arm_group",
+    "robot_description",
+    node->get_namespace()
   );
 
   moveit::planning_interface::MoveGroupInterface::Options options_eef(
-      "hand_group",
-      "robot_description",
-      node->get_namespace()
+    "hand_group",
+    "robot_description",
+    node->get_namespace()
   );
 
   moveit::planning_interface::MoveGroupInterface move_group(node, options);
@@ -81,22 +85,22 @@ int main(int argc, char **argv)
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
   auto joints = move_group.getCurrentJointValues();
-  if (joints.size() < 3)
-  {
+  if (joints.size() < 3) {
     RCLCPP_ERROR(node->get_logger(), "Joint state alınamadı!");
     rclcpp::shutdown();
     return 1;
   }
 
-  RCLCPP_INFO(node->get_logger(),
-              "Current joints: %.3f %.3f %.3f",
-              joints[0], joints[1], joints[2]);
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Current joints: %.3f %.3f %.3f",
+    joints[0], joints[1], joints[2]);
 
   std::vector<double> target = joints;
   auto current = move_group.getCurrentJointValues();
   RCLCPP_INFO(node->get_logger(), "Şu anki pozisyon: %.3f", current[0]);
 
-  
+
   // Başlangıç durumunu güncelle
   move_group.setStartStateToCurrentState();
   float q1, q2;

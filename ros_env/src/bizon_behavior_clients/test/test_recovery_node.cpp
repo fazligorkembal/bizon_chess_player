@@ -8,7 +8,8 @@
 
 using bizon_behavior_clients::RecoveryNode;
 
-namespace {
+namespace
+{
 
 /// Records every tick so the test can assert on ordering, and returns a
 /// scripted sequence of results.
@@ -18,7 +19,7 @@ public:
   ScriptedAction(const std::string & name, const BT::NodeConfiguration & config)
   : BT::SyncActionNode(name, config) {}
 
-  static BT::PortsList providedPorts() { return {}; }
+  static BT::PortsList providedPorts() {return {};}
 
   BT::NodeStatus tick() override
   {
@@ -44,9 +45,10 @@ struct Fixture
   ScriptedAction * recovery{nullptr};
   BT::Tree tree;
 
-  void build(const std::vector<BT::NodeStatus> & work_results,
-             const std::vector<BT::NodeStatus> & recovery_results,
-             int retries)
+  void build(
+    const std::vector<BT::NodeStatus> & work_results,
+    const std::vector<BT::NodeStatus> & recovery_results,
+    int retries)
   {
     factory.registerNodeType<RecoveryNode>("RecoveryNode");
     factory.registerNodeType<ScriptedAction>("Work");
@@ -63,8 +65,9 @@ struct Fixture
       for (auto & node : subtree->nodes) {
         if (auto * a = dynamic_cast<ScriptedAction *>(node.get())) {
           a->trace = &trace;
-          if (a->name() == "work") { a->results = work_results; work = a; }
-          else { a->results = recovery_results; recovery = a; }
+          if (a->name() == "work") {a->results = work_results; work = a;} else {
+            a->results = recovery_results; recovery = a;
+          }
         }
       }
     }
@@ -95,7 +98,8 @@ TEST(RecoveryNode, GivesUpAfterRetriesExhausted)
   Fixture f;
   f.build({BT::NodeStatus::FAILURE}, {BT::NodeStatus::SUCCESS}, 2);
   EXPECT_EQ(f.tree.tickWhileRunning(), BT::NodeStatus::FAILURE);
-  EXPECT_EQ(f.trace,
+  EXPECT_EQ(
+    f.trace,
     (std::vector<std::string>{"work", "recovery", "work", "recovery", "work"}));
 }
 

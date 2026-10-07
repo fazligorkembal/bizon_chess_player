@@ -67,9 +67,9 @@ BT::NodeStatus ArmActionClientNode::on_cancelled()
 BT_REGISTER_NODES(factory)
 {
   BT::NodeBuilder builder = [](const std::string & name, const BT::NodeConfiguration & config)
-  {
-    return std::make_unique<bizon_behavior_clients::ArmActionClientNode>(
-      name, "arm_action", config);
-  };
+    {
+      return std::make_unique<bizon_behavior_clients::ArmActionClientNode>(
+        name, "arm_action", config);
+    };
   factory.registerBuilder<bizon_behavior_clients::ArmActionClientNode>("ArmActionClient", builder);
 }

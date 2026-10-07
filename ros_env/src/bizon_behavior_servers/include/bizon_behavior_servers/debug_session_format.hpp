@@ -115,20 +115,20 @@ inline std::vector<std::string> fenSquareDiff(
   std::vector<std::string> diffs;
 
   auto expand = [](const std::string & board_field) {
-    std::vector<char> squares;  // index 0 == a8 .. index 63 == h1, '.' == empty
-    for (char c : board_field) {
-      if (c == '/') {
-        continue;
+      std::vector<char> squares; // index 0 == a8 .. index 63 == h1, '.' == empty
+      for (char c : board_field) {
+        if (c == '/') {
+          continue;
+        }
+        if (c >= '1' && c <= '8') {
+          squares.insert(squares.end(), static_cast<size_t>(c - '0'), '.');
+        } else {
+          squares.push_back(c);
+        }
       }
-      if (c >= '1' && c <= '8') {
-        squares.insert(squares.end(), static_cast<size_t>(c - '0'), '.');
-      } else {
-        squares.push_back(c);
-      }
-    }
-    squares.resize(64, '.');  // a malformed/short FEN still yields a comparable array
-    return squares;
-  };
+      squares.resize(64, '.'); // a malformed/short FEN still yields a comparable array
+      return squares;
+    };
 
   const std::vector<char> camera_squares = expand(boardFieldOf(camera_fen));
   const std::vector<char> text_squares = expand(boardFieldOf(text_fen));
@@ -138,7 +138,7 @@ inline std::vector<std::string> fenSquareDiff(
       continue;
     }
     const std::string square = squareForCellIndex(i, false);
-    auto describe = [](char c) { return c == '.' ? std::string("empty") : std::string(1, c); };
+    auto describe = [](char c) {return c == '.' ? std::string("empty") : std::string(1, c);};
     std::ostringstream line;
     line << square << ": camera=" << describe(camera_squares[static_cast<size_t>(i)])
          << " text=" << describe(text_squares[static_cast<size_t>(i)]);

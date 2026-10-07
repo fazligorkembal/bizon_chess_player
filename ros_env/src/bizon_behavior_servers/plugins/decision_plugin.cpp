@@ -30,18 +30,18 @@ namespace
 bool compare_fens_without_classes(const std::string & fen_camera, const std::string & fen_text)
 {
   auto replace_letters = [](const std::string & fen) {
-    std::string result;
-    for (char c : fen) {
-      if (std::isupper(static_cast<unsigned char>(c))) {
-        result += 'X';
-      } else if (std::islower(static_cast<unsigned char>(c))) {
-        result += 'x';
-      } else {
-        result += c;
+      std::string result;
+      for (char c : fen) {
+        if (std::isupper(static_cast<unsigned char>(c))) {
+          result += 'X';
+        } else if (std::islower(static_cast<unsigned char>(c))) {
+          result += 'x';
+        } else {
+          result += c;
+        }
       }
-    }
-    return result;
-  };
+      return result;
+    };
   const std::string masked_camera = replace_letters(fen_camera);
   const std::string masked_text = replace_letters(fen_text);
   RCLCPP_DEBUG(
@@ -165,7 +165,9 @@ void DecisionPlugin::onConfigure()
   node->get_parameter(behavior_name_ + ".box_size", robot_params_.box_size);
 
   if (!node->has_parameter(behavior_name_ + ".robot_base_offset_x")) {
-    node->declare_parameter(behavior_name_ + ".robot_base_offset_x", robot_params_.robot_base_offset_x);
+    node->declare_parameter(
+      behavior_name_ + ".robot_base_offset_x",
+      robot_params_.robot_base_offset_x);
   }
   node->get_parameter(behavior_name_ + ".robot_base_offset_x", robot_params_.robot_base_offset_x);
 
@@ -409,8 +411,10 @@ ResultStatus DecisionPlugin::handle_checkmate(const std::string & fen)
     return ResultStatus{Status::FAILED, 3};
   }
 
-  move_from2_ = move_from_down2_ = move_to2_ = move_to_down2_ = std::vector<double>{0.0, 0.0, 0.0, 0.0};
-  move_from3_ = move_from_down3_ = move_to3_ = move_to_down3_ = std::vector<double>{0.0, 0.0, 0.0, 0.0};
+  move_from2_ = move_from_down2_ = move_to2_ = move_to_down2_ =
+    std::vector<double>{0.0, 0.0, 0.0, 0.0};
+  move_from3_ = move_from_down3_ = move_to3_ = move_to_down3_ =
+    std::vector<double>{0.0, 0.0, 0.0, 0.0};
 
   hand_close_position_ = {
     robot_params_.gap_eef_close, robot_params_.gap_eef_close, robot_params_.gap_eef_close};
@@ -512,7 +516,7 @@ bool DecisionPlugin::handle_straight()
     return false;
   }
   return joint_targets_from_xy(x_from, y_from, move_from1_, move_from_down1_) &&
-    joint_targets_from_xy(x_to, y_to, move_to1_, move_to_down1_);
+         joint_targets_from_xy(x_to, y_to, move_to1_, move_to_down1_);
 }
 
 bool DecisionPlugin::handle_two_piece_move()
@@ -534,12 +538,14 @@ bool DecisionPlugin::handle_two_piece_move()
     move_type_ = "castle";
   } else if (move_type_ == "en_passant") {
     box_from2 = move_best_.substr(2, 2);
-    box_from2[1] = static_cast<char>((player_side_ == "white") ? box_from2[1] - 1 : box_from2[1] + 1);
+    box_from2[1] =
+      static_cast<char>((player_side_ == "white") ? box_from2[1] - 1 : box_from2[1] + 1);
 
     get_captured_pieces_count(board_only, count_white_captured_, count_black_captured_);
     dv = (player_side_ == "white") ? count_black_captured_ / 4 + 1 : count_white_captured_ / 4 + 1;
     md = (player_side_ == "white") ? count_black_captured_ % 4 + 1 : count_white_captured_ % 4 + 1;
-    box_to2 = (player_side_ == "white") ? ("h" + std::to_string(md)) : ("a" + std::to_string(9 - md));
+    box_to2 =
+      (player_side_ == "white") ? ("h" + std::to_string(md)) : ("a" + std::to_string(9 - md));
 
     RCLCPP_WARN(
       node_.lock()->get_logger(),
@@ -554,7 +560,8 @@ bool DecisionPlugin::handle_two_piece_move()
     get_captured_pieces_count(board_only, count_white_captured_, count_black_captured_);
     dv = (player_side_ == "white") ? count_black_captured_ / 4 + 1 : count_white_captured_ / 4 + 1;
     md = (player_side_ == "white") ? count_black_captured_ % 4 + 1 : count_white_captured_ % 4 + 1;
-    box_to1 = (player_side_ == "white") ? ("h" + std::to_string(md)) : ("a" + std::to_string(9 - md));
+    box_to1 =
+      (player_side_ == "white") ? ("h" + std::to_string(md)) : ("a" + std::to_string(9 - md));
   } else if (move_type_ == "promotion") {
     box_from1 = (player_side_ == "white") ?
       ("a" + std::to_string(count_promotion_ + 1)) :
@@ -588,10 +595,14 @@ bool DecisionPlugin::handle_two_piece_move()
   // so applying the same offset after mirroring would send the piece the
   // wrong way on that side.
   if (move_type_ == "en_passant") {
-    y_to2 += (player_side_ == "white") ? -(dv + 2) * robot_params_.box_size : (dv + 2) * robot_params_.box_size;
+    y_to2 +=
+      (player_side_ ==
+      "white") ? -(dv + 2) * robot_params_.box_size : (dv + 2) * robot_params_.box_size;
   }
   if (move_type_ == "capture") {
-    y_to1 += (player_side_ == "white") ? -(dv + 2) * robot_params_.box_size : (dv + 2) * robot_params_.box_size;
+    y_to1 +=
+      (player_side_ ==
+      "white") ? -(dv + 2) * robot_params_.box_size : (dv + 2) * robot_params_.box_size;
   }
   if (move_type_ == "promotion") {
     y_from1 += (player_side_ == "white") ? robot_params_.box_size * 2 : -robot_params_.box_size * 2;
@@ -605,17 +616,19 @@ bool DecisionPlugin::handle_two_piece_move()
   mirror_xy(x_to2, y_to2);
 
   return joint_targets_from_xy(x_from1, y_from1, move_from1_, move_from_down1_) &&
-    joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
-    joint_targets_from_xy(x_from2, y_from2, move_from2_, move_from_down2_) &&
-    joint_targets_from_xy(x_to2, y_to2, move_to2_, move_to_down2_);
+         joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
+         joint_targets_from_xy(x_from2, y_from2, move_from2_, move_from_down2_) &&
+         joint_targets_from_xy(x_to2, y_to2, move_to2_, move_to_down2_);
 }
 
 bool DecisionPlugin::handle_promotion_capture()
 {
   const std::string board_only = fen_validated_.substr(0, fen_validated_.find(' '));
   get_captured_pieces_count(board_only, count_white_captured_, count_black_captured_);
-  const int dv = (player_side_ == "white") ? count_black_captured_ / 4 + 1 : count_white_captured_ / 4 + 1;
-  const int md = (player_side_ == "white") ? count_black_captured_ % 4 + 1 : count_white_captured_ % 4 + 1;
+  const int dv =
+    (player_side_ == "white") ? count_black_captured_ / 4 + 1 : count_white_captured_ / 4 + 1;
+  const int md =
+    (player_side_ == "white") ? count_black_captured_ % 4 + 1 : count_white_captured_ % 4 + 1;
 
   const std::string box_from1 = move_best_.substr(2, 2);
   const std::string box_to1 =
@@ -640,7 +653,9 @@ bool DecisionPlugin::handle_promotion_capture()
   }
 
   // Offset before mirroring -- see the comment in handle_two_piece_move().
-  y_to1 += (player_side_ == "white") ? -(dv + 2) * robot_params_.box_size : (dv + 2) * robot_params_.box_size;
+  y_to1 +=
+    (player_side_ ==
+    "white") ? -(dv + 2) * robot_params_.box_size : (dv + 2) * robot_params_.box_size;
 
   mirror_xy(x_from1, y_from1);
   mirror_xy(x_to1, y_to1);
@@ -656,11 +671,11 @@ bool DecisionPlugin::handle_promotion_capture()
   count_promotion_++;
 
   return joint_targets_from_xy(x_from1, y_from1, move_from1_, move_from_down1_) &&
-    joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
-    joint_targets_from_xy(x_from2, y_from2, move_from2_, move_from_down2_) &&
-    joint_targets_from_xy(x_to2, y_to2, move_to2_, move_to_down2_) &&
-    joint_targets_from_xy(x_from3, y_from3, move_from3_, move_from_down3_) &&
-    joint_targets_from_xy(x_to3, y_to3, move_to3_, move_to_down3_);
+         joint_targets_from_xy(x_to1, y_to1, move_to1_, move_to_down1_) &&
+         joint_targets_from_xy(x_from2, y_from2, move_from2_, move_from_down2_) &&
+         joint_targets_from_xy(x_to2, y_to2, move_to2_, move_to_down2_) &&
+         joint_targets_from_xy(x_from3, y_from3, move_from3_, move_from_down3_) &&
+         joint_targets_from_xy(x_to3, y_to3, move_to3_, move_to_down3_);
 }
 
 bool DecisionPlugin::square_to_world(const std::string & box, double & x, double & y)
@@ -753,7 +768,8 @@ bool DecisionPlugin::confirm_pending_against_camera()
     context << "failed: our own pending move is not reflected on the board\n";
     context << "pending fen: " << fen_pending_ << "\n";
     context << "camera fen:  " << fen_from_camera_ << "\n";
-    const auto diffs = bizon_behaviors::debug_format::fenSquareDiff(fen_from_camera_, pending_board);
+    const auto diffs =
+      bizon_behaviors::debug_format::fenSquareDiff(fen_from_camera_, pending_board);
     if (diffs.empty()) {
       context << "square diff: (board fields match; only the trailing FEN fields differ)\n";
     } else {
@@ -782,8 +798,12 @@ std::string DecisionPlugin::who_is_owner_of_move()
   // call has to rediscover the position through the search ladder below.
   confirm_pending_against_camera();
 
-  RCLCPP_INFO(node->get_logger(), "[%s] camera FEN: %s", behavior_name_.c_str(), fen_from_camera_.c_str());
-  RCLCPP_INFO(node->get_logger(), "[%s] text FEN:   %s", behavior_name_.c_str(), fen_from_text_.c_str());
+  RCLCPP_INFO(
+    node->get_logger(), "[%s] camera FEN: %s",
+    behavior_name_.c_str(), fen_from_camera_.c_str());
+  RCLCPP_INFO(
+    node->get_logger(), "[%s] text FEN:   %s",
+    behavior_name_.c_str(), fen_from_text_.c_str());
 
   if (fen_from_camera_ == fen_from_text_only_board_) {
     // Owner detection reads the side-to-move field of the *matched*
@@ -804,7 +824,8 @@ std::string DecisionPlugin::who_is_owner_of_move()
     return bizon_chess::side_to_move(fen_from_text_);
   }
 
-  const std::vector<std::string> possible_next_fens = possible_next_moves_from_valid_fen(fen_from_text_);
+  const std::vector<std::string> possible_next_fens = possible_next_moves_from_valid_fen(
+    fen_from_text_);
 
   // Ladder order matters: an exact match at any depth is stronger evidence
   // than a class-insensitive match at depth one. Trying depth-1 fuzzy first
@@ -858,7 +879,8 @@ std::string DecisionPlugin::who_is_owner_of_move()
   // Second degree, ignoring piece classes.
   for (const auto & possible_fen : possible_next_fens) {
     for (const auto & possible_fen_second : possible_next_moves_from_valid_fen(possible_fen)) {
-      const std::string board_only_second = possible_fen_second.substr(0, possible_fen_second.find(' '));
+      const std::string board_only_second =
+        possible_fen_second.substr(0, possible_fen_second.find(' '));
       if (compare_fens_without_classes(fen_from_camera_, board_only_second)) {
         write_to_text_file(possible_fen);
         write_to_text_file(possible_fen_second);
@@ -873,12 +895,13 @@ std::string DecisionPlugin::who_is_owner_of_move()
   }
 
   RCLCPP_ERROR(
-    node->get_logger(), "[%s] no match at any depth; cannot detect move owner", behavior_name_.c_str());
+    node->get_logger(), "[%s] no match at any depth; cannot detect move owner",
+    behavior_name_.c_str());
 
   {
     std::ostringstream context;
     context << "failed: no legal continuation from the recorded history matched the camera "
-               "(searched two plies, exact and class-insensitive)\n";
+      "(searched two plies, exact and class-insensitive)\n";
     context << "camera fen: " << fen_from_camera_ << "\n";
     context << "text fen:   " << fen_from_text_ << "\n";
     const auto diffs =
@@ -1007,7 +1030,9 @@ bool DecisionPlugin::write_to_text_file(const std::string & fen)
   return true;
 }
 
-void DecisionPlugin::captureFailureBundle(const std::string & label, const std::string & context_text)
+void DecisionPlugin::captureFailureBundle(
+  const std::string & label,
+  const std::string & context_text)
 {
   try {
     const std::string bundle_dir = DebugSession::instance().beginErrorBundle(label);
@@ -1020,7 +1045,8 @@ void DecisionPlugin::captureFailureBundle(const std::string & label, const std::
     DebugSession::instance().requestImageDump(bundle_dir);
   } catch (const std::exception & ex) {
     RCLCPP_WARN(
-      node_.lock()->get_logger(), "[%s] [debug bundle] %s capture threw: %s", behavior_name_.c_str(),
+      node_.lock()->get_logger(), "[%s] [debug bundle] %s capture threw: %s",
+      behavior_name_.c_str(),
       label.c_str(), ex.what());
   }
 }

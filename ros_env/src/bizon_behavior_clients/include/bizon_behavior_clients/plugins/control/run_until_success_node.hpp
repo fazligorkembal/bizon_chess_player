@@ -10,24 +10,24 @@ namespace bizon_behavior_tree
 class RunUntilSuccessNode : public BT::ControlNode
 {
 public:
-    RunUntilSuccessNode(
-        const std::string& name,
-        const BT::NodeConfiguration& conf);
-    
-    ~RunUntilSuccessNode() override = default;
+  RunUntilSuccessNode(
+    const std::string & name,
+    const BT::NodeConfiguration & conf);
 
-    static BT::PortsList providedPorts()
-    {
-        return {
-        };   
-    }
+  ~RunUntilSuccessNode() override = default;
+
+  static BT::PortsList providedPorts()
+  {
+    return {
+    };
+  }
 
 private:
-    unsigned int current_child_idx_;
+  unsigned int current_child_idx_;
 
-    BT::NodeStatus tick() override;
+  BT::NodeStatus tick() override;
 
-    void halt() override;
+  void halt() override;
 };
 }
 

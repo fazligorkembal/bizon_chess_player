@@ -23,9 +23,10 @@ TEST(StockfishProcess, ReturnsBestMoveForOpeningPosition)
   ASSERT_TRUE(sf.start(std::chrono::seconds(5))) << sf.lastError();
 
   std::string best;
-  ASSERT_TRUE(sf.bestMove(
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-    10, std::chrono::seconds(10), best)) << sf.lastError();
+  ASSERT_TRUE(
+    sf.bestMove(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      10, std::chrono::seconds(10), best)) << sf.lastError();
 
   // A legal long-algebraic move: two squares, optionally a promotion char.
   ASSERT_GE(best.size(), 4u);
@@ -77,9 +78,10 @@ TEST(StockfishProcess, EnumeratesTwentyLegalMovesFromTheOpeningPosition)
   ASSERT_TRUE(sf.start(std::chrono::seconds(5))) << sf.lastError();
 
   std::vector<std::string> moves;
-  ASSERT_TRUE(sf.legalMoves(
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-    std::chrono::seconds(5), moves)) << sf.lastError();
+  ASSERT_TRUE(
+    sf.legalMoves(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      std::chrono::seconds(5), moves)) << sf.lastError();
   EXPECT_EQ(moves.size(), 20u);
   sf.stop();
 }
@@ -96,9 +98,10 @@ TEST(StockfishProcess, ReportsNoLegalMovesOnAMatePosition)
   // review: legalMoves() used to trust "nothing parsed as a move" as
   // equivalent to "the engine reported zero legal moves", which are not
   // the same claim).
-  ASSERT_TRUE(sf.legalMoves(
-    "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-    std::chrono::seconds(5), moves)) << sf.lastError();
+  ASSERT_TRUE(
+    sf.legalMoves(
+      "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
+      std::chrono::seconds(5), moves)) << sf.lastError();
   EXPECT_TRUE(moves.empty());
   sf.stop();
 }
@@ -109,9 +112,10 @@ TEST(StockfishProcess, AppliesAMoveAndReturnsTheResultingFen)
   ASSERT_TRUE(sf.start(std::chrono::seconds(5))) << sf.lastError();
 
   std::string fen_out;
-  ASSERT_TRUE(sf.applyMove(
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-    "e2e4", std::chrono::seconds(5), fen_out)) << sf.lastError();
+  ASSERT_TRUE(
+    sf.applyMove(
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "e2e4", std::chrono::seconds(5), fen_out)) << sf.lastError();
   // No black pawn is adjacent on rank 4, so this build's "d" omits the en
   // passant target square entirely rather than naming an uncapturable one.
   EXPECT_EQ(fen_out, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");

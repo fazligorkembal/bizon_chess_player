@@ -5,8 +5,9 @@
 
 namespace bizon_behaviors
 {
-WaitPlugin::WaitPlugin() : TimedBehavior<WaitAction>(),
-    feedback_(std::make_shared<WaitAction::Feedback>())
+WaitPlugin::WaitPlugin()
+: TimedBehavior<WaitAction>(),
+  feedback_(std::make_shared<WaitAction::Feedback>())
 {
 }
 
@@ -19,17 +20,17 @@ ResultStatus WaitPlugin::onRun(const std::shared_ptr<const WaitAction::Goal> com
 
 ResultStatus WaitPlugin::onCycleUpdate()
 {
-    auto current_point = node_.lock()->now();
-    auto time_left = wait_end_ - current_point;
+  auto current_point = node_.lock()->now();
+  auto time_left = wait_end_ - current_point;
 
-    feedback_->time_left = time_left;
-    action_server_->publish_feedback(feedback_);
+  feedback_->time_left = time_left;
+  action_server_->publish_feedback(feedback_);
 
-    if (time_left.nanoseconds() > 0) {
-        return ResultStatus{Status::RUNNING};
-    } else {
-        return ResultStatus{Status::SUCCEEDED};
-    }
+  if (time_left.nanoseconds() > 0) {
+    return ResultStatus{Status::RUNNING};
+  } else {
+    return ResultStatus{Status::SUCCEEDED};
+  }
 }
 
 }

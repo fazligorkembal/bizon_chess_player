@@ -66,7 +66,7 @@ public:
   /// detects a fen-mismatch or move-owner failure it calls
   /// requestImageDump() and BoardPlugin's callback writes whatever it
   /// currently knows into the given bundle directory.
-  using ImageDumpFn = std::function<void(const std::string & bundle_dir)>;
+  using ImageDumpFn = std::function<void (const std::string & bundle_dir)>;
   void registerImageDumpCallback(ImageDumpFn fn);
 
   /// Creates errors/<NNN>_<label>_<HH-MM-SS>/, logs the events.log line
