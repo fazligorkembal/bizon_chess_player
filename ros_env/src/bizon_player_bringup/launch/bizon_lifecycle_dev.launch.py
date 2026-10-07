@@ -3,12 +3,12 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable, OpaqueFunction
-from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import LoadComposableNodes, SetParameter
+from launch.actions import (
+    DeclareLaunchArgument, GroupAction, SetEnvironmentVariable, OpaqueFunction)
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import SetParameter
 from launch_ros.actions import Node
-from launch_ros.descriptions import ComposableNode, ParameterFile
+from launch_ros.descriptions import ParameterFile
 from launch_ros.actions import PushRosNamespace
 
 from collections.abc import Generator
@@ -18,12 +18,14 @@ from typing import Optional, TypeAlias, Union
 import launch
 import yaml
 
+
 class Colors:
     CYAN = '\033[96m'
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
     RED = '\033[91m'
     END = '\033[0m'
+
 
 YamlValue: TypeAlias = Union[str, int, float, bool]
 
@@ -281,16 +283,15 @@ class RewrittenYaml(launch.Substitution):
 
 
 def launch_setup(context, *args, **kwargs):
-    #bringup_dir = get_package_share_directory('nav2_bringup')
+    # bringup_dir = get_package_share_directory('nav2_bringup')
     remappings = [('/tf', 'tf'), ('/tf_static', 'tf_static')]
-    
 
     namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     use_composition = LaunchConfiguration('use_composition')
-    #container_name = LaunchConfiguration('container_name')
-    #container_name_full = (namespace, '/', container_name)
+    # container_name = LaunchConfiguration('container_name')
+    # container_name_full = (namespace, '/', container_name)
     log_level = LaunchConfiguration('log_level')
     params_file = LaunchConfiguration('params_file')
     debug_session_dir = LaunchConfiguration('debug_session_dir').perform(context)
@@ -314,16 +315,21 @@ def launch_setup(context, *args, **kwargs):
         'RCUTILS_LOGGING_BUFFERED_STREAM', '1'
     )
 
-    #print(Colors.CYAN + 'Launching with container: ' + container_name.perform(context) + Colors.END)
+    # print(Colors.CYAN + 'Launching with container: '
+    #       + container_name.perform(context) + Colors.END)
     print(Colors.CYAN + 'Launching with namespace: ' + namespace.perform(context) + Colors.END)
     print(Colors.CYAN + 'Launching with log_level: ' + log_level.perform(context) + Colors.END)
-    print(Colors.CYAN + 'Launching with use_sim_time: ' + use_sim_time.perform(context) + Colors.END)
+    print(Colors.CYAN + 'Launching with use_sim_time: '
+          + use_sim_time.perform(context) + Colors.END)
     print(Colors.CYAN + 'Launching with autostart: ' + autostart.perform(context) + Colors.END)
-    print(Colors.CYAN + 'Launching with use_composition: ' + use_composition.perform(context) + Colors.END)
+    print(Colors.CYAN + 'Launching with use_composition: '
+          + use_composition.perform(context) + Colors.END)
     print(Colors.CYAN + 'Launching with lifecycle_nodes: ' + str(lifecycle_nodes) + Colors.END)
     print(Colors.CYAN + 'Launching with remappings: ' + str(remappings) + Colors.END)
-    print(Colors.CYAN + 'Launching with stdout_linebuf_envvar: ' + str(stdout_linebuf_envvar) + Colors.END)
-    #print(Colors.CYAN + 'Launching with container_name_full: ' + str(container_name_full) + Colors.END)
+    print(Colors.CYAN + 'Launching with stdout_linebuf_envvar: '
+          + str(stdout_linebuf_envvar) + Colors.END)
+    # print(Colors.CYAN + 'Launching with container_name_full: '
+    #       + str(container_name_full) + Colors.END)
     print(Colors.CYAN + 'Launching with param_file: ' + params_file.perform(context) + Colors.END)
 
     configured_params = ParameterFile(
@@ -335,7 +341,6 @@ def launch_setup(context, *args, **kwargs):
         ),
         allow_substs=True,
     )
-    
 
     load_nodes = GroupAction(
         actions=[
@@ -384,6 +389,7 @@ def launch_setup(context, *args, **kwargs):
         load_nodes,
     ]
 
+
 def generate_launch_description():
     declare_namespace_cmd = DeclareLaunchArgument(
         'namespace', default_value='bizon1', description='Top-level namespace'
@@ -407,11 +413,11 @@ def generate_launch_description():
         description='Use composed bringup if True',
     )
 
-    #declare_container_name_cmd = DeclareLaunchArgument(
+    # declare_container_name_cmd = DeclareLaunchArgument(
     #    'container_name',
     #    default_value='bizon_container',
     #    description='the name of conatiner that nodes will load in if use composition',
-    #)
+    # )
 
     declare_log_level_cmd = DeclareLaunchArgument(
         'log_level', default_value='info', description='log level'
@@ -423,7 +429,6 @@ def generate_launch_description():
         description='Absolute path of this game\'s debug session directory, resolved by '
                     'bizon_player.launch.py; empty disables debug logging',
     )
-
 
     bringup_dir = get_package_share_directory('bizon_player_bringup')
     declare_params_file_cmd = DeclareLaunchArgument(
@@ -438,10 +443,9 @@ def generate_launch_description():
             declare_use_sim_time_cmd,
             declare_autostart_cmd,
             declare_use_composition_cmd,
-            #declare_container_name_cmd,
+            # declare_container_name_cmd,
             declare_log_level_cmd,
             declare_params_file_cmd,
             declare_debug_session_dir_cmd,
         ] + [OpaqueFunction(function=launch_setup)]
     )
-    

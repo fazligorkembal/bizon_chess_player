@@ -1,13 +1,7 @@
 import os
-import sys
-from xml.dom import Node
-sys.path.insert(0, '/home/user/Documents/bizon_chess_player/scripts')
-from display_bbox_detection import debug_draw_square_boxes
+
 import cv2
 import numpy as np
-import random
-import time
-from tqdm import tqdm
 from ultralytics import YOLO
 import rclpy
 from rclpy.node import Node
@@ -42,6 +36,7 @@ class_id_map = {
     10: "black_king",
     11: "black_pawn"
 }
+
 
 def order_points(pts):
     pts = pts.reshape(4, 2)
@@ -80,8 +75,9 @@ def score_detection(approx, contour, img_area):
 
     return approx_peri / peri
 
+
 def get_all_images_from_folder(folder_path):
-    
+
     image_paths = []
     for dirpath, dirnames, filenames in os.walk(folder_path):
         for filename in filenames:
@@ -94,6 +90,7 @@ def get_all_images_from_folder(folder_path):
 # MAIN PIPELINE
 # ==========================
 C_HOLD = None
+
 
 def get_cropped_image(image):
     global adaptive_thresh_block_size, adaptive_thresh_C, C_HOLD
@@ -182,8 +179,6 @@ def get_cropped_image(image):
                 best_score = score
                 best_approx = approx
 
-
-
     if best_approx is None or len(best_approx) != 4:
         return None, None
 
@@ -214,10 +209,10 @@ def get_cropped_image(image):
 
 def get_square_bboxes(board_img, border_ratio=0.08, inner_crop_ratio=0.01):
     """
-    return:
-        squares_bboxes : list of (x1, y1, x2, y2) 64 adet
-    """
+    Return the bounding boxes of the 64 squares of the board.
 
+    Each box is an (x1, y1, x2, y2) tuple.
+    """
     h, w = board_img.shape[:2]
 
     bx = int(w * border_ratio)
@@ -254,6 +249,7 @@ def get_square_bboxes(board_img, border_ratio=0.08, inner_crop_ratio=0.01):
 
     return boxes
 
+
 def extract_square_images(
     board_img,
     out_size=64,
@@ -277,25 +273,24 @@ def extract_square_images(
 
     return squares
 
+
 def crop_bboxes(image, board_img, M=None, destination_folder=None):
-    debug = board_img.copy()
     boxes = get_square_bboxes(board_img)
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)
 
     points = []
     for i, (x1, y1, x2, y2) in enumerate(boxes):
-        is_founded = False
-
         if M is not None:
-            pts = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype="float32").reshape(-1, 1, 2)
+            pts = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                           dtype="float32").reshape(-1, 1, 2)
             pts = cv2.perspectiveTransform(pts, np.linalg.inv(M))
             pts = pts.astype(int)
-            
+
             points.append(pts)
-            
+
     return points
-        
+
 
 # ==========================
 # ROS NODE
@@ -310,7 +305,8 @@ class InferenceNode(Node):
             self.image_callback,
             10
         )
-        self.model = YOLO("/home/user/Documents/bizon_chess_player/scripts/runs/classify/train/weights/best.pt")
+        self.model = YOLO(
+            "/home/user/Documents/bizon_chess_player/scripts/runs/classify/train/weights/best.pt")
 
     def image_callback(self, msg):
         try:
@@ -331,7 +327,9 @@ class InferenceNode(Node):
             board_img, M = get_cropped_image(frame)
             image_debug = frame.copy()
             if board_img is not None:
-                points = crop_bboxes(frame, board_img, M, destination_folder="/home/user/Documents/bizon_chess_player/datasets/real")
+                points = crop_bboxes(
+                    frame, board_img, M,
+                    destination_folder="/home/user/Documents/bizon_chess_player/datasets/real")
                 for pts in points:
                     cropped = image_debug[pts[0][0][1]:pts[2][0][1], pts[0][0][0]:pts[2][0][0]]
                     cropped = cv2.resize(cropped, (224, 224))
@@ -345,11 +343,14 @@ class InferenceNode(Node):
                         center_x = (pts[0][0][0] + pts[2][0][0]) // 2
                         center_y = (pts[0][0][1] + pts[2][0][1]) // 2
 
-                        cv2.polylines(image_debug, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
-                        cv2.putText(image_debug, class_name, (center_x - 50, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                        cv2.polylines(image_debug, [pts], isClosed=True, color=(0, 255, 0),
+                                      thickness=2)
+                        cv2.putText(image_debug, class_name, (center_x - 50, center_y),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
                     print(results)
-                    # cv2.polylines(image_debug, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
+                    # cv2.polylines(image_debug, [pts], isClosed=True, color=(0, 255, 0),
+                    #               thickness=2)
             cv2.imshow("debug", image_debug)
             cv2.waitKey(1)
         except Exception as e:

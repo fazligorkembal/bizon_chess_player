@@ -10,23 +10,24 @@ from launch_ros.actions import PushRosNamespace
 from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 
+
 class Colors:
-    black='\033[30m'
-    red='\033[31m'
-    green='\033[32m'
-    orange='\033[33m'
-    blue='\033[34m'
-    purple='\033[35m'
-    cyan='\033[36m'
-    lightgrey='\033[37m'
-    darkgrey='\033[90m'
-    lightred='\033[91m'
-    lightgreen='\033[92m'
-    yellow='\033[93m'
-    lightblue='\033[94m'
-    pink='\033[95m'
-    lightcyan='\033[96m'
-    end='\033[0m'
+    black = '\033[30m'
+    red = '\033[31m'
+    green = '\033[32m'
+    orange = '\033[33m'
+    blue = '\033[34m'
+    purple = '\033[35m'
+    cyan = '\033[36m'
+    lightgrey = '\033[37m'
+    darkgrey = '\033[90m'
+    lightred = '\033[91m'
+    lightgreen = '\033[92m'
+    yellow = '\033[93m'
+    lightblue = '\033[94m'
+    pink = '\033[95m'
+    lightcyan = '\033[96m'
+    end = '\033[0m'
 
 
 class Moveit_config_bringer:
@@ -35,7 +36,6 @@ class Moveit_config_bringer:
         assert old_prefix is not None, "old_prefix must be provided"
         self.type_list = []
         self.old_prefix = old_prefix
-        
 
     def change_prefix(self, moveit_config: dict, prefix: str):
         if prefix == self.old_prefix:
@@ -44,19 +44,19 @@ class Moveit_config_bringer:
         moveit_config = self.change_dict_prefix(moveit_config, prefix)
 
         return moveit_config
-    
+
     def change_dict_prefix(self, dictionary: dict, prefix: str):
 
         keys = list(dictionary.keys())
 
         for key in keys:
-            
+
             if self.old_prefix in key:
                 new_key = key.replace(self.old_prefix, prefix)
                 dictionary[new_key] = dictionary[key]
                 del dictionary[key]
                 key = new_key
-                        
+
             if type(dictionary[key]) == dict:
                 dictionary[key] = self.change_dict_prefix(dictionary[key], prefix)
             elif type(dictionary[key]) == str:
@@ -64,7 +64,7 @@ class Moveit_config_bringer:
             elif type(dictionary[key]) == list:
                 dictionary[key] = self.change_list_prefix(dictionary[key], prefix)
         return dictionary
-    
+
     def change_list_prefix(self, list_, prefix):
         for i in range(len(list_)):
             if type(list_[i]) == dict:
@@ -74,7 +74,7 @@ class Moveit_config_bringer:
             elif type(list_[i]) == list:
                 list_[i] = self.change_list_prefix(list_[i], prefix)
         return list_
-            
+
     def change_str_prefix(self, string, prefix):
         string = string.replace(self.old_prefix, prefix)
         return string
@@ -98,12 +98,14 @@ def launch_setup(context, *args, **kwargs):
     infra_output = "screen" if verbose else "log"
     move_group_log_level = LaunchConfiguration('move_group_log_level').perform(context)
 
-    print(Colors.yellow + "MoveIt config package: " + moveit_config_package.perform(context) + Colors.end)
+    print(Colors.yellow + "MoveIt config package: "
+          + moveit_config_package.perform(context) + Colors.end)
     print(Colors.yellow + "Bringup package: " + bringup_package.perform(context) + Colors.end)
     print(Colors.yellow + "Use sim time: " + use_sim_time.perform(context) + Colors.end)
     print(Colors.yellow + "Robot name: " + prefix.perform(context) + Colors.end)
     print(Colors.yellow + "Namespace: " + namespace + Colors.end)
-    print(Colors.yellow + "Ros2 control hardware type: " + ros2_control_hardware_type.perform(context) + Colors.end)
+    print(Colors.yellow + "Ros2 control hardware type: "
+          + ros2_control_hardware_type.perform(context) + Colors.end)
     print(Colors.yellow + "Use controller: " + use_controller.perform(context) + Colors.end)
 
     moveit_config = (
@@ -119,32 +121,37 @@ def launch_setup(context, *args, **kwargs):
     )
     print(Colors.yellow + "MoveIt config loaded, Moveit Config: " + Colors.end)
     print(moveit_config.to_dict().keys())
-    
 
     moveit_config_bringer = Moveit_config_bringer(old_prefix="bizon2")
-    moveit_config = moveit_config_bringer.change_prefix(moveit_config.to_dict(), prefix.perform(context))
-    #CHECKED
+    moveit_config = moveit_config_bringer.change_prefix(
+        moveit_config.to_dict(), prefix.perform(context))
+    # CHECKED
 
     ros2_controllers_yaml_path = os.path.join(
-        get_package_share_directory(bringup_package.perform(context)), "params", "bizon2_full_ros2_controllers.yaml"
+        get_package_share_directory(bringup_package.perform(context)),
+        "params", "bizon2_full_ros2_controllers.yaml"
     )
 
     if(os.path.exists(ros2_controllers_yaml_path)):
-        print(Colors.green + "Controllers file found: " + str(ros2_controllers_yaml_path) + Colors.end)
+        print(Colors.green + "Controllers file found: "
+              + str(ros2_controllers_yaml_path) + Colors.end)
         with open(ros2_controllers_yaml_path, 'r') as f:
             ros2_controllers_content = f.read()
-        ros2_controllers_content = ros2_controllers_content.replace("bizon2", prefix.perform(context))
+        ros2_controllers_content = ros2_controllers_content.replace(
+            "bizon2", prefix.perform(context))
         ros2_controllers_tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
         ros2_controllers_tmp.write(ros2_controllers_content)
         ros2_controllers_tmp.close()
         ros2_controllers_yaml = ros2_controllers_tmp.name
         print(Colors.green + "Controllers file written to: " + ros2_controllers_yaml + Colors.end)
     else:
-        print(Colors.red + "Controllers file not found: " + str(ros2_controllers_yaml_path) + Colors.end)
+        print(Colors.red + "Controllers file not found: "
+              + str(ros2_controllers_yaml_path) + Colors.end)
         ros2_controllers_yaml = ros2_controllers_yaml_path
 
-
-    print(Colors.yellow + "Ros2 controllers config after prefix change, ros2 controllers config: " + Colors.end)
+    print(Colors.yellow
+          + "Ros2 controllers config after prefix change, ros2 controllers config: "
+          + Colors.end)
     print(ros2_controllers_yaml)
 
     move_group_configuration = {
@@ -202,7 +209,9 @@ def launch_setup(context, *args, **kwargs):
         print(robot_description)
 
     load_controllers = []
-    #for controller in ["joint_state_broadcaster", "arm_group_controller", "hand_group_controller"]: // isaac sim pushes joint statesm, so no need to spawn joint state broadcaster
+    # for controller in ["joint_state_broadcaster", "arm_group_controller",
+    # "hand_group_controller"]: // isaac sim pushes joint statesm, so no need
+    # to spawn joint state broadcaster
     for controller in ["arm_group_controller", "hand_group_controller"]:
         load_controllers.append(
             ExecuteProcess(
@@ -214,7 +223,7 @@ def launch_setup(context, *args, **kwargs):
                 output=infra_output,
             )
         )
-    
+
     n = GroupAction(
         actions=[
             # rviz_node,
@@ -225,18 +234,17 @@ def launch_setup(context, *args, **kwargs):
         ]
         + load_controllers
     )
-        
+
     return [n]
-    
 
 
 def generate_launch_description():
-    
+
     declare_moveit_config_package = DeclareLaunchArgument(
         'moveit_config_package',
         default_value='bizon2_moveit_pkg',
         description='MoveIt config package')
-    
+
     declare_bringup_package = DeclareLaunchArgument(
         'bringup_package',
         default_value='bizon_player_bringup',
@@ -246,7 +254,7 @@ def generate_launch_description():
         'use_sim_time',
         default_value='true',
         description='None')
-    
+
     declare_prefix = DeclareLaunchArgument(
         'prefix',
         default_value='bizon2',
@@ -273,7 +281,6 @@ def generate_launch_description():
         'use_controller',
         default_value='False',
         description='None')
-    
 
     return LaunchDescription([
             declare_moveit_config_package,
@@ -287,4 +294,3 @@ def generate_launch_description():
         ]
         + [OpaqueFunction(function=launch_setup)]
     )
-    

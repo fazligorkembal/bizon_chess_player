@@ -1,8 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from moveit_configs_utils import MoveItConfigsBuilder
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():

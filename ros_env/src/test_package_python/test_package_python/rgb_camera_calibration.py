@@ -1,4 +1,3 @@
-import sys
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -145,10 +144,10 @@ def get_cropped_image(image):
 
 def get_square_bboxes(board_img, border_ratio=0.08, inner_crop_ratio=0.03):
     """
-    return:
-        squares_bboxes : list of (x1, y1, x2, y2) 64 adet
-    """
+    Return the bounding boxes of the 64 squares of the board.
 
+    Each box is an (x1, y1, x2, y2) tuple.
+    """
     h, w = board_img.shape[:2]
 
     bx = int(w * border_ratio)
@@ -185,6 +184,7 @@ def get_square_bboxes(board_img, border_ratio=0.08, inner_crop_ratio=0.03):
 
     return boxes
 
+
 def extract_square_images(
     board_img,
     out_size=64,
@@ -208,17 +208,18 @@ def extract_square_images(
 
     return squares
 
+
 def debug_draw_square_boxes(board_img):
     debug = board_img.copy()
     boxes = get_square_bboxes(board_img)
 
     for i, (x1, y1, x2, y2) in enumerate(boxes):
-        color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         cv2.rectangle(debug, (x1, y1), (x2, y2), color, 2)
         cx = (x1 + x2) // 2
         cy = (y1 + y2) // 2
         cv2.putText(debug, str(i), (cx - 10, cy),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     cv2.imshow("Square BBoxes", debug)
     cv2.waitKey(1)
@@ -258,7 +259,7 @@ class RGBCameraCalibration(Node):
             if board is None:
                 return
 
-            #extract_square_images(board)
+            # extract_square_images(board)
             debug_draw_square_boxes(board)
 
         except Exception as e:

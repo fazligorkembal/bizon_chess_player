@@ -1,4 +1,5 @@
-"""Single entry point for one robot.
+"""
+Single entry point for one robot.
 
 Replaces the three terminals per robot documented in the README
 (bizon_player_bringup, bizon_lifecycle_dev, and the behavior tree client)
@@ -162,7 +163,8 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'log_level',
             default_value='info',
-            description='Log level for behavior_server, the lifecycle manager and the tree client'),
+            description='Log level for behavior_server, the lifecycle manager '
+                        'and the tree client'),
         DeclareLaunchArgument(
             'moveit_config_package',
             default_value='bizon2_moveit_pkg',

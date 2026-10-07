@@ -27,7 +27,7 @@ set(dependencies
   bizon_description
 )
 
-add_library(bizon_ros2_control 
+add_library(bizon_ros2_control
   SHARED
   src/bizon_system_interface.cpp
 )
