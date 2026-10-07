@@ -194,10 +194,10 @@ ever provided one, and treating the endstops as if they were one is how the two 
   act, it cannot cut driver current, and it does nothing if the host itself is wedged.
 - **The Z axis falls when the drivers are disabled.** With all revolute axes on a vertical `0 0 1`
   axis, gravity loads only `bizon2pris1`. This applies to any driver disable — a latched fault, a
-  power cut, or a deliberate shutdown. A self-locking leadscrew (T8, 2 mm lead — 8 mm lead does
-  not self-lock) is the clean answer; the alternative is a brake, or a circuit that keeps Z
-  energised while the other axes drop. Settle it before the mechanics are finalised; it is
-  expensive to retrofit.
+  power cut, or a deliberate shutdown. **Settled (2026-10-07): the Z axis uses a T8 leadscrew
+  with a 2 mm lead, which self-locks**, so Z holds position through any driver disable. Keep it
+  that way: an 8 mm lead does not self-lock, and swapping one in would need a brake or a circuit
+  that keeps Z energised while the other axes drop — expensive to retrofit.
 - **If an emergency stop is ever wanted**, it is added hardware, not a code change: a button
   breaking TMC2209 `EN` in copper, independent of firmware, with a status line the MCU can latch
   on. Scope it as its own task rather than assuming it into an existing one.

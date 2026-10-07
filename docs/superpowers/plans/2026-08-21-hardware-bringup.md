@@ -2577,6 +2577,6 @@ physical stop inputs are the per-axis endstops; the MCU latches on a hit and the
 §2 of the design doc carries it up to `RecoveryNode`. If an E-stop button is wanted later it is
 added hardware — a contact breaking TMC2209 `EN` in copper — and its own task.
 
-Settle the Z axis before the mechanics are finalised: with every revolute joint on a vertical
-axis, gravity loads only `bizon2pris1`, so any driver disable — latched fault, power cut, or
-shutdown — drops it. A 2 mm-lead leadscrew self-locks; an 8 mm lead does not.
+The Z axis is settled: with every revolute joint on a vertical axis, gravity loads only
+`bizon2pris1`, and its T8 leadscrew has a 2 mm lead, which self-locks, so a driver disable —
+latched fault, power cut, or shutdown — does not drop it. An 8 mm lead would not self-lock.
