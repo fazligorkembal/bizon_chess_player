@@ -6,8 +6,8 @@ outcome. Everything else in each task (code, unit tests, compile verification) i
 before the task is marked complete.
 
 Items 2, 3, 3b, 3c and 4 were run in Isaac Sim on 2026-08-23 and all passed — a full game
-played through to the end. Task 6 and Task 7 remain unrun because neither feature is
-implemented yet.
+played through to the end. Task 6 is implemented but has not been run in the simulator yet.
+Task 7 was rejected by design and is no longer a check.
 
 Run these when Isaac Sim is up. Each entry names the task it belongs to, what to run, and the
 exact thing to look for.
@@ -150,18 +150,14 @@ ros2 service call /lifecycle_manager/manage_nodes bizon_msgs/srv/ManageLifecycle
 
 ---
 
-## [ ] Task 7 — the planner sees the pieces
+## [-] Task 7 — rejected, not a check
 
-**Plan reference:** Task 7, Step 7.
-
-In RViz, add a `PlanningScene` display.
-
-**Pass:** 32 cylinders appear on the board at game start and drop to 31 after the first capture.
-Command a move whose straight-line path crosses an occupied square and confirm the planned
-trajectory arcs over it rather than through it.
-
-**Fail signal:** no collision objects, or a trajectory that passes through a cylinder — the
-planner is not seeing the board and will knock pieces on real hardware.
+Task 7 put a collision cylinder on every occupied square so MoveIt would plan around the
+pieces. It was rejected by design on 2026-08-23. The robot is vision-driven and avoids pieces
+through the motion pattern (rise to the clearance height, traverse, descend), not through
+collision checking. When it was tried, MoveIt rejected the goal states and the game ended on
+the first move. The commits are kept on `task-7-planning-scene-rejected` as a record. If the
+arm ever clips a piece, the fix is the clearance height, not a planning scene.
 
 ---
 
