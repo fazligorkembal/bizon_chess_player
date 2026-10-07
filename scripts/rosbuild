@@ -69,7 +69,11 @@ fi
 if [ "$MODE" = "test" ]; then
   INNER="source $ROS_SETUP && cd $WS && colcon test $* && colcon test-result --verbose"
 else
-  INNER="source $ROS_SETUP && cd $WS && colcon build $*"
+  # -Wno-dev drops CMake's author warnings. They come from upstream ROS and
+  # MoveIt cmake files (find_package(Boost) against a CMake that removed
+  # FindBoost, CMP0167), never from our own CMakeLists, and they bury the
+  # warnings that are ours. Pass --cmake-args yourself to override.
+  INNER="source $ROS_SETUP && cd $WS && colcon build $* --cmake-args -Wno-dev"
 fi
 
 START=$(date +%s)
