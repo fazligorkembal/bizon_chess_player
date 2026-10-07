@@ -199,6 +199,10 @@ namespace bizon_behaviors
         if (msg->width == 0 || msg->height == 0 || msg->data.empty())
         {
             RCLCPP_WARN(node_.lock()->get_logger(), "Invalid image received");
+            // Re-arm: every early return out of this callback must hand the
+            // camera back, or no further frame is ever inferred and the goal
+            // hangs with no error to show for it.
+            is_camera_active_.store(true);
             return;
         }
 
@@ -362,6 +366,12 @@ namespace bizon_behaviors
                 RCLCPP_DEBUG(
                     node_.lock()->get_logger(), "FEN not settled yet (%d/%d): '%s'",
                     pending_fen_count_, fen_stable_count_, results_.c_str());
+                // The whole point of settling is to look at the *next* frame,
+                // so the camera has to be re-armed here. Without this the
+                // debounce sees exactly one frame, fen_attempts_this_goal_
+                // never reaches fen_settle_attempts_, and the bound that was
+                // supposed to make this impossible to hang on never fires.
+                is_camera_active_.store(true);
                 return;
             }
 
