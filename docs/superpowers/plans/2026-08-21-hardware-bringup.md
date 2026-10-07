@@ -45,7 +45,8 @@ Tasks 1-3, 6, 7 and 8 need no hardware. Tasks 4, 5 and 9 have a bench step that 
 `docs/superpowers/plans/2026-08-19-pre-hardware-refactor.md` is still mid-flight: Tasks 1-3 are
 committed, Task 4's `arm_plugin.cpp` and `Arm.action` exist on disk uncommitted, Tasks 5-7 are
 not started. This plan does not duplicate them. Task 6 of that plan (lifecycle manager and the
-E-stop path) is a hard prerequisite for physical power-on and is referenced, not re-specified.
+software stop path) is a hard prerequisite for physical power-on and is referenced, not
+re-specified.
 
 ## File Structure
 
@@ -138,7 +139,7 @@ TEST(BizonProtocol, StateFrameRoundTrips)
 {
   StateFrame st{};
   st.seq = 7;
-  st.status = bizon_protocol::kStatusEstop;
+  st.status = bizon_protocol::kStatusLimitHit;
   st.homed_bits = 0b11111;
   st.stall_bits = 0b00100;
   for (int i = 0; i < kAxisCount; ++i) {
@@ -250,8 +251,9 @@ inline constexpr uint16_t kFlagEnable = 1u << 0;
 inline constexpr uint16_t kFlagHomeRequest = 1u << 1;
 inline constexpr uint16_t kFlagClearFault = 1u << 2;
 
-// Status bits, MCU -> host.
-inline constexpr uint16_t kStatusEstop = 1u << 0;
+// Status bits, MCU -> host. Bit 0 is an endstop hit outside the homing routine -- a limit
+// violation. There is no emergency-stop button on this machine; see the design doc's §6.
+inline constexpr uint16_t kStatusLimitHit = 1u << 0;
 inline constexpr uint16_t kStatusFault = 1u << 1;
 inline constexpr uint16_t kStatusHoming = 1u << 2;
 
@@ -811,7 +813,7 @@ namespace testing
 /// A scriptable fake MCU on the far end of a pty pair.
 ///
 /// This is not throwaway scaffolding: the whole fault chain -- stalled counter,
-/// endstop, E-stop -- is only testable in CI because this exists. Keep it after
+/// endstop hit, latched fault -- is only testable in CI because this exists. Keep it after
 /// the real hardware arrives.
 class McuStub
 {
@@ -1296,7 +1298,7 @@ keeping MoveIt.
 
 **Interfaces:**
 - Consumes: `SerialComm`, `McuStub`, the `serial` branch from Task 3.
-- Produces: `read()` returning `hardware_interface::return_type::ERROR` on E-stop, latched fault,
+- Produces: `read()` returning `hardware_interface::return_type::ERROR` on a limit hit, a latched fault,
   or a link outage exceeding `link_timeout_cycles`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1314,10 +1316,10 @@ using bizon_ros2_control::testing::McuStub;
 namespace
 {
 // Mirrors the rule enforced in BizonSystemInterface::read_serial_sensors():
-// a state frame carrying E-stop or a non-zero fault code is an error, not data.
+// a state frame carrying a limit hit or a non-zero fault code is an error, not data.
 bool frameIsFault(const bizon_protocol::StateFrame & st)
 {
-  return (st.status & bizon_protocol::kStatusEstop) ||
+  return (st.status & bizon_protocol::kStatusLimitHit) ||
          (st.status & bizon_protocol::kStatusFault) ||
          st.fault_code != 0;
 }
@@ -1335,12 +1337,12 @@ TEST(FaultPropagation, HealthyFrameIsNotAFault)
   EXPECT_FALSE(frameIsFault(st));
 }
 
-TEST(FaultPropagation, EstopStatusIsAFault)
+TEST(FaultPropagation, LimitHitStatusIsAFault)
 {
   McuStub stub;
   SerialComm comm;
   ASSERT_TRUE(comm.open(stub.devicePath(), 115200));
-  stub.setStatus(bizon_protocol::kStatusEstop);
+  stub.setStatus(bizon_protocol::kStatusLimitHit);
   stub.emitState(2);
 
   bizon_protocol::StateFrame st{};
@@ -1444,7 +1446,7 @@ ros2_control instead of being logged and swallowed:
 and inside `read_serial_sensors()`, after `last_state_ = st;`:
 
 ```cpp
-        if ((st.status & bizon_protocol::kStatusEstop) ||
+        if ((st.status & bizon_protocol::kStatusLimitHit) ||
             (st.status & bizon_protocol::kStatusFault) ||
             st.fault_code != 0)
         {
@@ -2566,12 +2568,15 @@ resetting the step counters.
 ## Prerequisite before first power-on
 
 Task 6 of `docs/superpowers/plans/2026-08-19-pre-hardware-refactor.md` — the lifecycle manager and
-the E-stop path — is not optional for physical operation. Today the manager handles one hardcoded
-node (`lifecycle_manager.cpp:33-39`) and `LifecycleManagerClient` is never constructed, so there
-is no software path that can deactivate the stack. Land it before the arm is energised for the
-first time.
+the software stop path — has landed (`7e2226b`, `09e1489`): the managed node list is a parameter
+and `IsSystemActive` gates the tree on it. What remains is verifying PAUSE/RESUME with a live
+Isaac Sim, the outstanding item in the simulation checklist.
 
-The hardware E-stop must cut TMC2209 `EN` in copper, independently of firmware. And settle the Z
-axis before the mechanics are finalised: with every revolute joint on a vertical axis, gravity
-loads only `bizon2pris1`, so disabling the drivers drops it. A 2 mm-lead leadscrew self-locks; an
-8 mm lead does not.
+There is no emergency-stop button on this machine and the design has never called for one. The
+physical stop inputs are the per-axis endstops; the MCU latches on a hit and the fault chain in
+§2 of the design doc carries it up to `RecoveryNode`. If an E-stop button is wanted later it is
+added hardware — a contact breaking TMC2209 `EN` in copper — and its own task.
+
+Settle the Z axis before the mechanics are finalised: with every revolute joint on a vertical
+axis, gravity loads only `bizon2pris1`, so any driver disable — latched fault, power cut, or
+shutdown — drops it. A 2 mm-lead leadscrew self-locks; an 8 mm lead does not.

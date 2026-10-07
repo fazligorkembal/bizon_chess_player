@@ -10,7 +10,7 @@ using bizon_behavior_clients::PollThrottle;
 // ReactiveFallback, which ticks it on every BT tick (~10ms) for as long as
 // the system stays paused. Without a rate limit, that alone drives ~100
 // real is_active service calls -- and the log lines each one produces --
-// per second for as long as an E-stop is held. PollThrottle is the pure
+// per second for as long as a pause is held. PollThrottle is the pure
 // rate-limiting decision extracted out of IsSystemActiveNode so it can be
 // tested with synthetic timestamps: no real sleeping, no live lifecycle
 // manager.

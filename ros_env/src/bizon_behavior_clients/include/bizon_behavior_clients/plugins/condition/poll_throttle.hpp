@@ -16,7 +16,7 @@ namespace bizon_behavior_clients
 /// Used by IsSystemActiveNode to bound how often it calls the real
 /// is_active service. IsSystemActiveNode sits behind a ReactiveFallback,
 /// which ticks it on every single BT tick (about every 10ms) for as long as
-/// the system stays paused, so without this an E-stop held for any length
+/// the system stays paused, so without this a pause held for any length
 /// of time would drive on the order of 100 service round-trips -- and the
 /// log lines each one produces -- per second. Gating real polls to at most
 /// once per min_interval trades a bounded amount of added detection

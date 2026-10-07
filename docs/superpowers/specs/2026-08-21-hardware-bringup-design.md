@@ -33,7 +33,9 @@ kinematics.** Everything else stays on the host, which has no real-time requirem
 - Endstop monitoring and the homing routine.
 - TMC2209 UART configuration: microstepping, run/hold current, StealthChop, StallGuard threshold.
 - StallGuard monitoring, raised as a fault flag.
-- Hardware E-stop input: assert TMC `EN` inactive immediately, latch the fault.
+- Limit handling: an endstop triggering outside the homing routine asserts TMC `EN`
+  inactive immediately and latches the fault until the host clears it. The endstops are
+  the machine's only physical stop input — there is no separate emergency-stop button.
 
 **Host owns:** perception, Stockfish, behavior tree, MoveIt, ros2_control, calibration.
 
@@ -54,7 +56,7 @@ Host -> MCU : sync | seq | 5 x int32 target_steps | flags | crc16      (~32 B)
 MCU  -> Host: sync | seq | 5 x int32 actual_steps | status | crc16     (~32 B)
 
 flags  : enable, home_request, gripper_current_level
-status : homed_bits | endstop_bits | stall_bits | estop | fault_code
+status : homed_bits | endstop_bits | stall_bits | limit_hit | fault_code
 ```
 
 About 3.2 kB/s each way — negligible for USB CDC.
@@ -178,17 +180,27 @@ the largest single accuracy win available and it touches only the finger STL.
 
 ## 6. Safety
 
-- **E-stop is hardware first.** The button drives TMC2209 `EN` inactive directly, in copper, not
-  through firmware. The MCU sees the same signal and latches a fault; the host sees it in the
-  status word and the lifecycle manager deactivates.
+**There is no emergency-stop button on this machine.** The only physical stop inputs are the
+per-axis endstops; everything else is software or the power switch. Do not write code or
+documentation that assumes an independent hardware E-stop exists — nothing in the design has
+ever provided one, and treating the endstops as if they were one is how the two got confused.
+
+- **Endstops are the physical limit input.** The MCU stops the axis, asserts TMC2209 `EN`
+  inactive and latches the fault; the host reads `limit_hit` in the status word and `read()`
+  returns ERROR, which walks the fault chain in §2 up to `RecoveryNode`.
+- **The stop path in software is the lifecycle manager.** `PAUSE` deactivates `behavior_server`,
+  `IsSystemActive` fails, and the tree stops issuing arm goals (Task 6 of the pre-hardware plan,
+  landed in `7e2226b` / `09e1489`). This is a stop, not an emergency stop: it takes a BT tick to
+  act, it cannot cut driver current, and it does nothing if the host itself is wedged.
 - **The Z axis falls when the drivers are disabled.** With all revolute axes on a vertical `0 0 1`
-  axis, gravity loads only `bizon2pris1`. A self-locking leadscrew (T8, 2 mm lead — 8 mm lead does
-  not self-lock) is the clean answer. The alternative is a brake or a circuit that keeps Z
-  energised through E-stop. This must be settled before the mechanics are finalised; it is
+  axis, gravity loads only `bizon2pris1`. This applies to any driver disable — a latched fault, a
+  power cut, or a deliberate shutdown. A self-locking leadscrew (T8, 2 mm lead — 8 mm lead does
+  not self-lock) is the clean answer; the alternative is a brake, or a circuit that keeps Z
+  energised while the other axes drop. Settle it before the mechanics are finalised; it is
   expensive to retrofit.
-- **Lifecycle manager** currently manages one hardcoded node (`lifecycle_manager.cpp:33-39`) and
-  `LifecycleManagerClient` is never constructed. It cannot serve as the E-stop path until Task 6
-  of the pre-hardware plan lands.
+- **If an emergency stop is ever wanted**, it is added hardware, not a code change: a button
+  breaking TMC2209 `EN` in copper, independent of firmware, with a status line the MCU can latch
+  on. Scope it as its own task rather than assuming it into an existing one.
 
 ## 7. Playing a Human
 

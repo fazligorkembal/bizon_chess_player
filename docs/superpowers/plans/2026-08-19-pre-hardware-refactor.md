@@ -4,7 +4,7 @@
 
 **Goal:** Make the bizon_chess_player stack safe and structurally ready for real hardware on a Jetson, while everything is still verifiable in Isaac Sim.
 
-**Architecture:** Move all long-running work (MoveIt motion, Stockfish decisions) out of the behavior-tree client process and behind lifecycle-managed action servers, following the existing `BoardPlugin` / `TimedBehavior` pattern. Replace the restart-from-zero control node with an explicit recovery subtree that always releases the gripper and retreats before re-planning. Make the lifecycle manager actually manage every server so it can serve as the E-stop path on real hardware.
+**Architecture:** Move all long-running work (MoveIt motion, Stockfish decisions) out of the behavior-tree client process and behind lifecycle-managed action servers, following the existing `BoardPlugin` / `TimedBehavior` pattern. Replace the restart-from-zero control node with an explicit recovery subtree that always releases the gripper and retreats before re-planning. Make the lifecycle manager actually manage every server so it can serve as the software stop path on real hardware (a lifecycle PAUSE; this machine has no emergency-stop button).
 
 **Tech Stack:** ROS 2 Humble, BehaviorTree.CPP v4, MoveIt2, ros2_control, pluginlib, Isaac Sim 5.1.0, TensorRT, Stockfish (UCI over pipe), ament_cmake + gtest.
 
@@ -971,7 +971,7 @@ git commit -m "feat(bt): add RecoveryNode with release-before-retreat recovery s
 
 ### Task 4: Arm action server
 
-Closes F3. Moves MoveIt into a lifecycle-managed plugin so it can be deactivated on E-stop and cancelled mid-motion.
+Closes F3. Moves MoveIt into a lifecycle-managed plugin so it can be deactivated on a lifecycle PAUSE and cancelled mid-motion.
 
 **Files:**
 - Create: `ros_env/src/bizon_msgs/action/Arm.action`
@@ -1887,7 +1887,7 @@ git commit -m "refactor(decision): move Stockfish behind a timed decision_action
 
 ---
 
-### Task 6: Real lifecycle management and the E-stop path
+### Task 6: Real lifecycle management and the software stop path
 
 Closes F5.
 
@@ -1987,7 +1987,7 @@ In `chess_game.xml`, wrap the `PlayOneMove` sequence's first element by insertin
                 <IsSystemActive lifecycle_manager_name="lifecycle_manager" />
 ```
 
-- [ ] **Step 5: Build and verify the E-stop path**
+- [ ] **Step 5: Build and verify the software stop path**
 
 ```bash
 cd ros_env

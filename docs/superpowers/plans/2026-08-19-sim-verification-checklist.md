@@ -132,7 +132,7 @@ ros2 lifecycle set /bizon2/behavior_server deactivate
 
 ---
 
-## [ ] Task 6 — the lifecycle manager is a working E-stop
+## [ ] Task 6 — the lifecycle manager is a working software stop
 
 **Plan reference:** Task 6, Step 5.
 

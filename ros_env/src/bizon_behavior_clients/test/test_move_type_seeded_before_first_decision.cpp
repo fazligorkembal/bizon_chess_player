@@ -42,7 +42,7 @@ BT::Tree buildTree(BT::Blackboard::Ptr blackboard)
 // ConditionNode::tick() throws BT::RuntimeError when a required input port
 // has no blackboard entry (see condition_node.cpp), and main.cpp ticks the
 // tree with tickWhileRunning() outside any try/catch, so an unseeded
-// move_type crashes the whole process on exactly the path the E-stop guard
+// move_type crashes the whole process on exactly the path the stop guard
 // exists to make safe. main.cpp now seeds move_type to "" up front; these
 // two tests document the crash this fixes and prove the fix actually
 // prevents it.

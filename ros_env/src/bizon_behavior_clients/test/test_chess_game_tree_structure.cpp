@@ -209,7 +209,7 @@ TEST(ChessGameTreeStructure, MoveSubtreeIsSkippedWhileWaitingForTheOpponent)
     << "Foreach MoveLoop must be a descendant of the MoveOrWaitForOpponent guard";
 }
 
-// Task 6 (F5, the E-stop path): a paused system (lifecycle_manager PAUSE
+// Task 6 (F5, the software stop path): a paused system (lifecycle_manager PAUSE
 // deactivates behavior_server) is a third instance of the same shape as
 // waiting for the opponent above -- a normal, expected non-progress state,
 // not a fault. The task brief's own Step 4 places IsSystemActive as the
@@ -251,7 +251,7 @@ TEST(ChessGameTreeStructure, IsSystemActiveIsNotInsideRecoveryNodeWorkBranch)
   ASSERT_NE(main_tree, nullptr);
 
   ASSERT_NE(findDescendantByTag(main_tree, "IsSystemActive"), nullptr)
-    << "MainTree has no IsSystemActive node: the E-stop guard is missing entirely";
+    << "MainTree has no IsSystemActive node: the stop guard is missing entirely";
 
   const XMLElement * recovery_node = findDescendantByTag(main_tree, "RecoveryNode");
   ASSERT_NE(recovery_node, nullptr) << "MainTree has no RecoveryNode";

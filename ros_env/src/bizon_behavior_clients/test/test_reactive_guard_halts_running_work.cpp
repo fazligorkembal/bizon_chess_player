@@ -106,7 +106,7 @@ struct GuardFixture
 // re-ticks an earlier sibling while that child keeps returning RUNNING
 // (FallbackNode::tick() only advances current_child_idx_ on FAILURE or
 // SUCCESS), so once the work branch starts a move, the guard is never
-// consulted again until that cycle ends -- the E-stop is deaf for the
+// consulted again until that cycle ends -- the stop guard is deaf for the
 // entire duration of a move. <ReactiveFallback> re-ticks every child from
 // the top on every single tick, so it notices the guard tripping and halts
 // the running child immediately.

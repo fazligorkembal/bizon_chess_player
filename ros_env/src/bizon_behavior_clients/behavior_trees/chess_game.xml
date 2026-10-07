@@ -11,7 +11,7 @@
            before the work branch is allowed to run again. A move that succeeds
            never touches the recovery branch at all.
 
-         A paused system (the E-stop path: lifecycle_manager PAUSE deactivates
+         A paused system (the software stop path: lifecycle_manager PAUSE deactivates
          behavior_server) is a third instance of the same shape as waiting for the
          opponent below: a normal, expected non-progress state, not a fault. For
          that reason IsSystemActive is NOT the first element of RecoveryNode's work
@@ -49,7 +49,7 @@
          release into the resume path is a real design change, out of scope for
          this fix. It is accepted deliberately here: behavior_server is already
          deactivated by the time a mid-move halt happens, so no motion occurs
-         either way, and an arm that keeps moving after an E-stop is strictly
+         either way, and an arm that keeps moving after a stop is strictly
          worse than one frozen holding a piece. -->
     <BehaviorTree ID="MainTree">
         <KeepRunningUntilFailure>

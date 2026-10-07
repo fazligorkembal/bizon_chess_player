@@ -14,9 +14,12 @@ namespace bizon_behavior_clients
 {
 /// Queries bizon_lifecycle_manager for whether the managed stack
 /// (behavior_server, which now hosts wait/board/arm/decision) is ACTIVE.
-/// This is the E-stop path: PAUSE-ing the lifecycle manager deactivates
-/// behavior_server, and this node is what makes the tree notice and stop
-/// commanding the arm rather than continuing blind. See chess_game.xml's
+/// This is the software stop path: PAUSE-ing the lifecycle manager
+/// deactivates behavior_server, and this node is what makes the tree notice
+/// and stop commanding the arm rather than continuing blind. It is a stop,
+/// not an emergency stop -- it acts a tick late and cannot cut driver
+/// current. This machine has no emergency-stop button; its only physical
+/// stop inputs are the per-axis endstops. See chess_game.xml's
 /// header comment for how the tree is wired around this node -- it must not
 /// sit inside RecoveryNode's work branch, or a paused system reads as a
 /// fault RecoveryNode cannot recover from (recovery needs the same
@@ -42,10 +45,10 @@ private:
   // The ReactiveFallback above this node ticks it on every BT tick
   // (~10ms) for as long as the system stays paused, so an unthrottled real
   // service call here would drive roughly 100 is_active round-trips (and
-  // the log lines each one produces) per second for as long as the E-stop
+  // the log lines each one produces) per second for as long as the pause
   // is held. poll_throttle_ bounds real polling to once every
   // kPollInterval_; ticks in between reuse last_status_. See
-  // poll_throttle.hpp for why this is safe for the E-stop's own
+  // poll_throttle.hpp for why this is safe for the stop path's own
   // responsiveness.
   static constexpr std::chrono::milliseconds kPollInterval_{200};
 

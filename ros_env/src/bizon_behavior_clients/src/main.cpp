@@ -109,7 +109,8 @@ int main(int argc, char **argv)
     // tick of PlayUntilGameOver runs, via
     // Inverter(ConditionNode CheckGameOver). Normally MakeDecisionClient
     // writes move_type first, inside RecoveryNode's work branch. But the
-    // E-stop guard (PlayMoveOrWaitForSystemActive, see chess_game.xml) can
+    // software stop guard (PlayMoveOrWaitForSystemActive, see chess_game.xml)
+    // can
     // short-circuit past RecoveryNode entirely -- on a PAUSE before the
     // first move, or simply because autostart has not yet activated
     // behavior_server when this tree starts ticking -- so CheckGameOver can
@@ -117,7 +118,7 @@ int main(int argc, char **argv)
     // throws BT::RuntimeError when a required input port has no blackboard
     // entry, and nothing catches it around tickWhileRunning() below, so an
     // unseeded move_type crashes the whole process on exactly the paths the
-    // E-stop guard is there to make safe. Seeding it empty here is enough:
+    // stop guard is there to make safe. Seeding it empty here is enough:
     // "" never equals CheckGameOver's param2 ("killking"), so it reads as
     // "game not over", the same as any other move_type that isn't the win
     // condition.
