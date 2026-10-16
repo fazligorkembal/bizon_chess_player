@@ -15,3 +15,11 @@ tensorrtx/
 **/Stockfish
 *last_moves*.txt
 debug/
+__pycache__/
+.pytest_cache/
+# KiCad writes these beside any file it opens; none of them is source.
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.lck
+_autosave-*

@@ -1,0 +1,10 @@
+# Host tools for the joint0 bench: tools/kicad_gen and tools/joint_bench.
+# Install with: python3 -m pip install --user -r tools/requirements.txt
+# Upper bounds stop a new major release from changing behaviour under us; the lower
+# bounds are the oldest versions the tests have been run against.
+numpy>=1.26,<3
+scipy>=1.11,<2
+matplotlib>=3.8,<4
+PyYAML>=6,<7
+pyserial==3.5
+pytest>=8,<10
