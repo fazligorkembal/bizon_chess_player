@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Build the joint0 bench firmware, or run its host-side unit tests, inside the pinned
+# firmware image (docker/dockerfile-firmware), and print only what is worth reading: one
+# line on success, the decisive errors on failure. The full log is always kept.
+#
+# Usage:
+#   fwbuild            compile the STM32 target (needs the CubeMX project generated)
+#   fwbuild --test     build and run the lib/ unit tests with the host compiler
+#   fwbuild --log      print the path of the last full log
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO="${BIZON_REPO:-$(dirname "$SELF")}"
+FW="$REPO/firmware/joint_bench"
+LOGDIR="${BIZON_LOGDIR:-$HOME/.cache/bizon-build}"
+LAST="$LOGDIR/fw-last.log"
+DOCKERFILE="$REPO/docker/dockerfile-firmware"
+# The tag carries the Dockerfile's hash, so editing the pins rebuilds the image instead of
+# silently reusing the old one.
+IMAGE="bizon-firmware:$(sha256sum "$DOCKERFILE" | cut -c1-12)"
+
+mkdir -p "$LOGDIR"
+
+case "${1:-}" in
+  --log) echo "$LAST"; exit 0 ;;
+  --test) MODE=test ;;
+  "") MODE=build ;;
+  *) echo "usage: fwbuild [--test|--log]" >&2; exit 2 ;;
+esac
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "building $IMAGE ..."
+  docker build -q -t "$IMAGE" -f "$DOCKERFILE" "$REPO/docker" >/dev/null || exit 1
+fi
+
+if [ "$MODE" = test ]; then
+  INNER="cmake -S lib -B /tmp/host -G Ninja && cmake --build /tmp/host && ctest --test-dir /tmp/host --output-on-failure"
+else
+  if [ ! -f "$FW/CMakePresets.json" ]; then
+    echo "no CubeMX project in $FW yet; generate it from joint_bench.ioc first" >&2
+    exit 1
+  fi
+  # A throwaway build directory, so a build here never fights with the bench machine's
+  # IDE over build/ in the shared checkout.
+  INNER="cmake --preset Debug -B /tmp/target && cmake --build /tmp/target"
+fi
+
+START=$(date +%s)
+docker run --rm -u "$(id -u):$(id -g)" -v "$REPO:$REPO" -w "$FW" "$IMAGE" bash -c "$INNER" >"$LAST" 2>&1
+RC=$?
+ELAPSED=$(( $(date +%s) - START ))
+
+if [ $RC -eq 0 ]; then
+  if [ "$MODE" = test ]; then
+    echo "TESTS PASSED in ${ELAPSED}s — $(grep -E 'tests passed' "$LAST" | tail -1)"
+  else
+    echo "BUILD OK in ${ELAPSED}s — $(grep -cE 'warning:' "$LAST") warnings"
+  fi
+  echo "full log: $LAST"
+  exit 0
+fi
+
+echo "=== ${MODE^^} FAILED (exit $RC) after ${ELAPSED}s"
+grep -nE "error:|CMake Error|FAILED|undefined reference|Failure|Expected|Which is" "$LAST" | head -25
+echo "--- tail:"
+tail -n 15 "$LAST"
+echo "full log: $LAST"
+exit $RC
