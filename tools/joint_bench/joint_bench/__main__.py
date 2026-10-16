@@ -16,7 +16,10 @@ import threading
 from . import recorder, report
 from .protocol import Sample, parse_line
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Four levels up, not three: __main__.py sits in tools/joint_bench/joint_bench/, and the
+# recordings belong in the repository root's debug/bench, not under tools/.
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
 DEFAULT_OUT = os.path.join(REPO, "debug", "bench")
 ST_VCP = (0x0483, 0x5740)  # STMicroelectronics Virtual COM Port, CubeMX's CDC default
 
