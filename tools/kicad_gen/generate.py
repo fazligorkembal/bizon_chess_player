@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Regenerate the schematic in hardware/joint_bench/ from nets.yaml.
+"""Regenerate everything in hardware/joint_bench/ from nets.yaml and the placement files.
 
     python3 tools/kicad_gen/generate.py
 
 Writes the schematic, runs KiCad's ERC on it, exports its netlist and checks that against
-nets.yaml, then plots it. An ERC error or a netlist difference stops the run with a
-non-zero exit before anything is plotted, so no drawing ever comes from a schematic that
+nets.yaml, plots it, then builds each placement board with its drawings and soldering
+checklist. An ERC error or a netlist difference stops the run with a non-zero exit before
+anything is plotted, so no drawing or checklist ever comes from a schematic that
 disagrees with nets.yaml. kicad-cli comes from $KICAD_CLI, defaulting to the pinned
 Docker wrapper in scripts/.
 """
 
+import glob
 import os
 import subprocess
 import sys
@@ -18,7 +20,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kicad_gen import design, netlist, schematic  # noqa: E402
+from kicad_gen import board, checklist, design, netlist, schematic  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(HERE))
 HW = os.path.join(REPO, "hardware", "joint_bench")
@@ -62,6 +64,27 @@ def main():
         raise SystemExit("schematic and nets.yaml disagree:\n  " + "\n  ".join(problems))
     kicad("sch", "export", "pdf", "-o", "exports/joint_bench.pdf", sch)
     kicad("sch", "export", "svg", "-o", "exports", sch)
+    for path in sorted(glob.glob(os.path.join(HW, "trial_*.yaml"))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        placement = board.load_placement(path)
+        bad = board.validate(d, placement)
+        if bad:
+            raise SystemExit(f"{name}: placement problems:\n  " + "\n  ".join(bad))
+        pcb = f"{name}.kicad_pcb"
+        board.write(d, placement, os.path.join(HW, pcb), f"{d.title} - {name}")
+        top = "F.Cu,F.SilkS,F.Fab,Dwgs.User,Edge.Cuts"
+        bottom = "B.Cu,B.SilkS,B.Fab,Dwgs.User,Edge.Cuts"
+        kicad("pcb", "export", "pdf", "--mode-single", "-l", top,
+              "-o", f"exports/{name}_top.pdf", pcb)
+        kicad("pcb", "export", "pdf", "--mode-single", "--mirror", "-l", bottom,
+              "-o", f"exports/{name}_bottom_mirrored.pdf", pcb)
+        svg = ["pcb", "export", "svg", "--mode-single", "--page-size-mode", "2",
+               "--exclude-drawing-sheet"]
+        kicad(*svg, "-l", top, "-o", f"exports/{name}_top.svg", pcb)
+        kicad(*svg, "--mirror", "-l", bottom, "-o", f"exports/{name}_bottom_mirrored.svg", pcb)
+        title = f"{name.replace('_', ' ').capitalize()} board"
+        with open(os.path.join(HW, f"{name}_checklist.md"), "w", encoding="utf-8") as fh:
+            fh.write(checklist.render(d, placement, exported, title))
     print(f"OK: {len(d.parts)} parts, {len(d.nets)} nets, ERC clean, netlist matches nets.yaml")
 
 

@@ -1,0 +1,17 @@
+# Placement on the 6 x 9 cm trial perfboard (stage A only). Holes are (col, row) counted
+# from 0 at the top-left hole, seen from the component side, long edge horizontal.
+# Count your board's holes and correct cols/rows before printing the drawing.
+board: {cols: 34, rows: 22, pitch: 2.54, margin: 2.5}
+
+# Holes between the BlackPill's two pin rows. 6 is 15.24 mm (0.6"); measure yours.
+blackpill_row_spacing: 6
+
+parts:
+  U1: {at: [2, 5]}                 # pin 1 = PB12, at the USB end
+  J1: {at: [31, 3], dir: down}     # IMU cable leaves the right edge
+  JP1: {at: [30, 12], dir: right}
+  R1: {at: [24, 12], dir: right, span: 4}
+  JP2: {at: [30, 15], dir: right}
+  R2: {at: [24, 15], dir: right, span: 4}
+  J2: {at: [3, 19], dir: right}    # logic analyzer, CH0 at the left
+  J3: {at: [17, 19], dir: right}   # 3V3, 5V, GND test points
