@@ -59,7 +59,8 @@ def _checks(result, fs):
         "A3 no missing samples": integ["missing"] == 0 and integ["out_of_order"] == 0,
         "A3 interval within 2%":
             abs(integ["interval_mean_us"] - expected_us) <= INTERVAL_TOLERANCE * expected_us,
-        "A4 no I2C errors": str(result["stats"].get("i2c_err", "0")) == "0",
+        # Absent or unreadable stats fail A4: no evidence of zero errors is not a pass.
+        "A4 no I2C errors": str(result["stats"].get("i2c_err")) == "0",
     }
 
 

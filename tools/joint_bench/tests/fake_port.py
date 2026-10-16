@@ -16,21 +16,31 @@ class FakeFirmware:
 
     Each readline() advances the fake clock by one millisecond. `drop` lists seq numbers
     the stream skips, to imitate lost samples. `stall_after` stops the stream after that
-    many samples, to imitate a dead link.
+    many samples, to imitate a dead link. `noise_at` emits one raw non-ASCII line just
+    before that seq, to imitate line noise. `mute` lists commands whose replies are lost
+    (the command is not applied, so a stream keeps flowing). Reads are capped, so a
+    recorder that never times out fails the test instead of spinning forever.
     """
 
-    def __init__(self, clock, drop=(), stall_after=None):
+    READ_CAP = 200_000
+
+    def __init__(self, clock, drop=(), stall_after=None, noise_at=None, mute=()):
         self.clock = clock
         self.out = deque()
         self.streaming = False
         self.seq = 0
         self.drop = set(drop)
         self.stall_after = stall_after
+        self.noise_at = noise_at
+        self.mute = set(mute)
         self.sent = []
+        self.reads = 0
 
     def write(self, data):
         cmd = data.decode().strip()
         self.sent.append(cmd)
+        if cmd in self.mute:
+            return
         if cmd == "stream on":
             self.streaming = True
             self.out.append("OK stream on\n")
@@ -54,10 +64,16 @@ class FakeFirmware:
             self.out.append("ERR unknown command\n")
 
     def readline(self):
+        self.reads += 1
+        if self.reads > self.READ_CAP:
+            raise RuntimeError("recorder never timed out")
         self.clock.t += 0.001
         if self.out:
             return self.out.popleft().encode()
         if self.streaming and (self.stall_after is None or self.seq < self.stall_after):
+            if self.seq == self.noise_at:
+                self.noise_at = None
+                return b"\xff\xfe garbage\n"
             seq = self.seq
             self.seq += 1
             if seq in self.drop:

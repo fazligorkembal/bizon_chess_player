@@ -50,3 +50,28 @@ def test_refuses_to_overwrite_an_existing_recording(tmp_path):
     clock = FakeClock()
     with pytest.raises(FileExistsError):
         _record(tmp_path, FakeFirmware(clock), clock)
+
+
+def test_a_non_ascii_line_mid_stream_is_logged_escaped_and_the_recording_completes(tmp_path):
+    clock = FakeClock()
+    fw = FakeFirmware(clock, noise_at=50)
+    out, meta = _record(tmp_path, fw, clock, seconds=1)
+    assert meta["unknown_lines"] >= 1
+    assert "\\xff\\xfe" in (out / "log.txt").read_text(encoding="ascii")
+    assert (out / "meta.yaml").exists()
+
+
+def test_a_lost_reply_while_streaming_times_out_instead_of_spinning():
+    clock = FakeClock()
+    fw = FakeFirmware(clock, mute=("stream off",))
+    fw.streaming = True
+    with pytest.raises(RecordError, match="no reply"):
+        Link(fw, clock=clock).command("stream off", timeout_s=0.5)
+
+
+def test_record_raises_when_stream_off_is_never_answered(tmp_path):
+    clock = FakeClock()
+    fw = FakeFirmware(clock, mute=("stream off",))
+    with pytest.raises(RecordError, match="no reply"):
+        _record(tmp_path, fw, clock, seconds=1)
+    assert not os.path.exists(tmp_path / "rec" / "meta.yaml")

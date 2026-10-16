@@ -46,22 +46,25 @@ class Link:
             if not raw:
                 yield None  # read timeout
                 continue
-            yield raw.decode("ascii", errors="replace")
+            # backslashreplace, not replace: line noise must reach the log as ASCII, since
+            # the recording files are ASCII and a U+FFFD would abort the whole recording.
+            yield raw.decode("ascii", errors="backslashreplace")
 
     def command(self, command, timeout_s=2.0, on_other=None):
         """Send a command and return its Reply. Lines that arrive first go to on_other."""
         self.send(command)
         deadline = self.clock() + timeout_s
         for line in self.lines():
-            if line is None:
-                if self.clock() > deadline:
-                    raise RecordError(f"no reply to {command!r}")
-                continue
-            msg = parse_line(line)
-            if isinstance(msg, Reply):
-                return msg
-            if on_other:
-                on_other(msg)
+            # The deadline is checked on every line, not only on read timeouts: while the
+            # stream flows at 1 kHz there is never a timeout, so a lost reply would spin.
+            if line is not None:
+                msg = parse_line(line)
+                if isinstance(msg, Reply):
+                    return msg
+                if on_other:
+                    on_other(msg)
+            if self.clock() > deadline:
+                raise RecordError(f"no reply to {command!r}")
 
 
 def record(link, outdir, seconds, label, repo, marks=()):
@@ -127,7 +130,9 @@ def record(link, outdir, seconds, label, repo, marks=()):
         "unknown_lines": unknown,
         "firmware": ver.text,
         "imu": fields,
-        "stats": stats.fields(),
+        # A failed stats reply is recorded as such, so the report can fail A4 on it instead
+        # of reading an empty dict as "no errors".
+        "stats": stats.fields() if stats.ok else {"error": stats.text},
         "git": git_sha(repo),
     }
     with open(os.path.join(outdir, "meta.yaml"), "w", encoding="utf-8") as fh:

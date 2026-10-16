@@ -1,12 +1,13 @@
 import os
 
 import numpy as np
+import pytest
 import yaml
 
 from joint_bench import report
 
 
-def _write_recording(path, a_g, lsb=8192, rate=1000, drop=()):
+def _write_recording(path, a_g, lsb=8192, rate=1000, drop=(), stats={"i2c_err": "0"}):
     os.makedirs(path)
     n = len(a_g)
     seq = np.array([i for i in range(n + len(drop)) if i not in set(drop)])[:n]
@@ -17,8 +18,9 @@ def _write_recording(path, a_g, lsb=8192, rate=1000, drop=()):
             fh.write(f"{s},{s * 1000},{c[0]},{c[1]},{c[2]},0,0,0\n")
     with open(os.path.join(path, "events.csv"), "w") as fh:
         fh.write("t_us,name\n2300,mark:a7-1\n")
-    meta = {"label": "synthetic", "imu": {"rate": str(rate), "lsb_per_g": str(lsb)},
-            "stats": {"i2c_err": "0"}}
+    meta = {"label": "synthetic", "imu": {"rate": str(rate), "lsb_per_g": str(lsb)}}
+    if stats is not None:
+        meta["stats"] = stats
     with open(os.path.join(path, "meta.yaml"), "w") as fh:
         yaml.safe_dump(meta, fh)
 
@@ -50,3 +52,12 @@ def test_missing_samples_fail_a3(tmp_path):
     _write_recording(path, a, drop=(100, 101))
     result = report.analyze(path)
     assert result["checks"]["A3 no missing samples"] is False
+
+
+@pytest.mark.parametrize("stats", [None, {}, {"error": "ERR busy"}])
+def test_a4_fails_without_a_clean_i2c_error_count(tmp_path, stats):
+    a = np.tile([0.0, 0.0, 1.0], (3000, 1))
+    path = str(tmp_path / "rec")
+    _write_recording(path, a, stats=stats)
+    result = report.analyze(path)
+    assert result["checks"]["A4 no I2C errors"] is False
