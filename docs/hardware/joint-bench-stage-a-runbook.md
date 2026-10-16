@@ -45,7 +45,9 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 
 ## 5. Flash
 
-1. ST-Link to the BlackPill's SWD header (3V3, SWDIO, SWCLK, GND).
+1. ST-Link to the BlackPill's SWD header: SWDIO, SWCLK and GND only. Leave the ST-Link's
+   3.3 V pin unconnected: the BlackPill is already powered from USB, and two 3.3 V supplies
+   would fight each other.
 2. Build on the development machine from `firmware/joint_bench` (CubeIDE, or
    `cmake --preset Debug && cmake --build build/Debug`) and flash `joint_bench.elf` with
    STM32CubeProgrammer or OpenOCD.
@@ -133,11 +135,24 @@ These pin down failures the unit tests cannot reach.
 2. **Host stops reading.** In `console`, `stream on`, then suspend it with Ctrl-Z for about
    five seconds, `fg`, `stream off`, `stats`. Pass: `tx_drop` is above zero, the firmware
    did not reset (`samples` kept counting) and the console works normally.
-3. **USB drops out mid-stream.** Power the BlackPill from the ST-Link's 3.3 V as well, so it
-   stays up without USB. `stream on`, unplug USB, wait five seconds, plug it back, start
-   `console` again. Pass: `stats` answers and `stream on` streams again. This exercises the
-   branch in `usb_pump()` that drops a transfer the unplug left unfinished; without it the
-   port would stay silent until reset.
+3. **USB drops out mid-stream.** Power is never cut: the GY-87 takes its power from USB's 5 V
+   (J1 VCC is on the +5V net), so unplugging the cable would also reset the IMU, and that
+   would test R1's re-probe rather than the USB code. Instead make the host drop the device
+   logically, which leaves VBUS and the IMU powered. Linux only; on another bench machine
+   skip R3 and note that in the results table.
+
+   In one terminal run `console`, then `stream on`. In a second terminal:
+
+       D=$(dirname "$(grep -l 5740 /sys/bus/usb/devices/*/idProduct | head -1)")
+       echo 0 | sudo tee "$D/authorized"; sleep 5; echo 1 | sudo tee "$D/authorized"
+
+   Expect the first terminal's console to fail when the port vanishes: its reader thread
+   dies with a serial exception and the console no longer works. Quit it with Ctrl-C (or
+   Ctrl-D; a traceback on exit is fine), then start `console` again. Pass: `stats` answers,
+   `tx_drop` has grown, and `stream on` streams again, with no `imu info` needed because the
+   IMU never lost power. This exercises the branch in `usb_pump()` that drops a transfer
+   left unfinished when the device stops being configured; without it the port would stay
+   silent until reset.
 
 ## Results
 
