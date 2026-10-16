@@ -1,0 +1,41 @@
+# Joint0 bench, stage A: BlackPill, IMU connector, logic-analyzer header.
+#
+# This file is the source of truth for the board. The schematic, the placement board and
+# the soldering checklist are generated from it by tools/kicad_gen; never edit those by
+# hand. Pin references are REF.NAME (a module pin name such as GND covers every pin with
+# that name) or REF.NUMBER. Design: docs/superpowers/specs/2026-10-16-joint0-bench-design.md
+title: Joint0 bench - stage A
+
+parts:
+  U1: {kind: blackpill, value: WeAct BlackPill F411CEU6}
+  # The GY-87 sits on the platform beside the chessboard, 30-60 cm away; this is the
+  # perfboard end of its cable. FSYNC is tied to GND at the module end, not here.
+  J1: {kind: header, value: IMU GY-87, pins: [VCC, GND, SCL, SDA, INT]}
+  J2:
+    kind: header
+    value: Logic analyzer
+    pins: [CH0_STEP, CH1_DIR, CH2_ENDSTOP, CH3_TMC_UART, CH4_SCL, CH5_SDA, CH6_IMU_INT, CH7_MARK, GND]
+  J3: {kind: header, value: Test points, pins: [3V3, 5V, GND]}
+  # 2.2k pull-ups in parallel with the GY-87's own. Open the jumpers when the module's
+  # pull-ups alone already measure 2.7k or less, or the bus sinks more than 3 mA.
+  JP1: {kind: header, value: SCL pull-up, pins: [A, B]}
+  JP2: {kind: header, value: SDA pull-up, pins: [A, B]}
+  R1: {kind: resistor, value: 2.2k}
+  R2: {kind: resistor, value: 2.2k}
+
+nets:
+  +5V: [U1.5V, J1.VCC, J3.5V]
+  GND: [U1.GND, J1.GND, J2.GND, J3.GND]
+  +3V3: [U1.3V3, J3.3V3, JP1.A, JP2.A]
+  SCL: [U1.PB6, J1.SCL, J2.CH4_SCL, R1.2]
+  SDA: [U1.PB7, J1.SDA, J2.CH5_SDA, R2.2]
+  SCL_PU: [JP1.B, R1.1]
+  SDA_PU: [JP2.B, R2.1]
+  IMU_INT: [U1.PA2, J1.INT, J2.CH6_IMU_INT]
+  MARK: [U1.PA4, J2.CH7_MARK]
+  # Stage-B signals, brought to the analyzer header now so the pins can be probed from
+  # the first board onward.
+  STEP1: [U1.PA8, J2.CH0_STEP]
+  DIR1: [U1.PB12, J2.CH1_DIR]
+  ENDSTOP1: [U1.PB10, J2.CH2_ENDSTOP]
+  TMC_UART: [U1.PA9, J2.CH3_TMC_UART]

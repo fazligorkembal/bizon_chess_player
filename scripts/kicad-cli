@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# kicad-cli from the pinned KiCad image, so ERC, netlists and plots do not depend on which
+# KiCad (if any) is installed on the host. The repository is mounted at its own path, so
+# absolute paths and the current directory mean the same thing inside and out.
+#
+# Usage: scripts/kicad-cli <kicad-cli arguments...>
+set -euo pipefail
+
+SELF="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO="${BIZON_REPO:-$(dirname "$SELF")}"
+# kicad/kicad:10.0.6-full, pinned by digest: a moving tag can change ERC rules or the
+# plot output between two runs of the same design.
+IMAGE="kicad/kicad@sha256:e36e29b5f4a638a1a7238eba3d2fcbc8e061ffed1e99a8f39cb722706c94a58e"
+
+case "$PWD/" in
+  "$REPO"/*) ;;
+  *) echo "kicad-cli: run from inside $REPO" >&2; exit 2 ;;
+esac
+
+exec docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$REPO:$REPO" -w "$PWD" "$IMAGE" kicad-cli "$@"

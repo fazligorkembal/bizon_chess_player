@@ -14,8 +14,9 @@ The board assumed is a WeAct BlackPill, STM32F411CEU6 in UFQFPN48. That package 
 PORTB 0-15, PC13/14/15 and PH0/PH1 — **no PORTC 0-12**, which is why USART6 is unusable here
 (its only pins on this package are PA11/PA12, taken by USB).
 
-Verify every alternate-function claim below against DS10314 Table 9 and your own board's
-schematic before soldering. Board revisions differ in what they tie to PA0, PA9 and PB2.
+The alternate functions below were checked against ST's open pin data
+(`STM32_open_pin_data`, F411 UFQFPN48) on 2026-10-16. Still check your own board's
+schematic before soldering: board revisions differ in what they tie to PA0, PA9 and PB2.
 
 ## Read this before every power-on
 
@@ -49,7 +50,7 @@ The four ways to destroy a TMC2209, in the order people actually manage it:
 other GPIO here is `FT`. All endstop inputs below sit on `FT` pins so a 5 V-powered sensor
 module cannot destroy them, but powering the sensors from 3.3 V is still the better answer.
 
-## Full allocation — four steppers, one servo gripper
+## Full allocation — four steppers, one servo gripper, the bench IMU
 
 One timer per axis, as §1 of the design doc requires: each axis needs its own step frequency,
 so they cannot share a timer's time base.
@@ -62,7 +63,7 @@ so they cannot share a timer's time base.
 | J2 `pris1` DIR | PB13 | GPIO out | |
 | J3 `rev2` STEP | PB0 | TIM3_CH3 (AF2) | |
 | J3 `rev2` DIR | PB14 | GPIO out | |
-| J4 `rev3` STEP | PB6 | TIM4_CH1 (AF2) | |
+| J4 `rev3` STEP | PA1 | TIM5_CH2 (AF2) | moved off PB6 so I2C1 can have PB6/PB7 |
 | J4 `rev3` DIR | PB15 | GPIO out | |
 | Gripper servo | PB8 | TIM10_CH1 (AF3) | 50 Hz, 1 MHz time base |
 | `EN`, all drivers | PB5 | GPIO out, active LOW | one net, see below |
@@ -73,11 +74,16 @@ so they cannot share a timer's time base.
 | Endstop 4 | PB9 | input, pull-up, EXTI9 | |
 | DIAG 1-4 (StallGuard) | PA5, PA6, PA7, PB1 | input, polled | 3.3 V from driver VIO |
 | Heartbeat / fault LED | PC13 | GPIO out | |
-| Spare timer | TIM5 | — | reserved for the 100 Hz control tick |
+| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-87 on the platform, 400 kHz |
+| IMU SDA | PB7 | I2C1_SDA (AF4), open-drain | |
+| IMU INT | PA2 | input, EXTI2, rising edge | data ready; the sample clock |
+| `VM` sense | PA3 | ADC1_IN3 | 100k/10k divider, stage B |
+| MARK | PA4 | GPIO out | logic-analyzer timing reference |
+| Control tick | TIM4 | — | 1 kHz executor tick; a time base, needs no pin |
 
 **EXTI numbers must be distinct.** EXTI lines are shared by *pin number* across ports, so PA10
-and PB10 cannot both be edge sources. The endstops above use numbers 10, 3, 4 and 9 — no
-collision. The DIAG lines are polled rather than edge-triggered precisely to avoid burning four
+and PB10 cannot both be edge sources. The endstops above use numbers 10, 3, 4 and 9, and
+the IMU's data-ready line uses 2 — no collision. The DIAG lines are polled rather than edge-triggered precisely to avoid burning four
 more EXTI numbers on a signal that is a slow fault flag, not a timing event.
 
 **One `EN` net for all drivers.** A fault should drop every axis, and the host's latched-fault
