@@ -374,7 +374,7 @@ damped-oscillation decay must give back its damping ratio.
 | A4 | Same 10 min, cable at final length | `i2c_err` = 0 in `stats`. A logic-analyzer capture of SCL/SDA decodes cleanly. |
 | A5 | Noise floor, 60 s at rest | Horizontal RMS and PSD recorded. This is the baseline for `t_settle`. |
 | A6 | Tap test: 5 strikes at each of 3 points (beside the board, beside the robot base, a corner) | Platform natural frequencies and damping ratios recorded. These are the frequencies the motion profile must avoid exciting. |
-| A7 | `mark` ×20 with the analyzer on `MARK` and `IMU_INT` | For each mark, the interval from the MARK edge to the next INT edge on the analyzer matches the interval from the `E` line's `t_us` to the next `T` sample's `t_us` within 20 µs. This shows the firmware's timestamps sit where the hardware edges are. |
+| A7 | `mark` ×5 with the analyzer on `MARK` and `IMU_INT` | For each mark, the interval from the MARK edge to the next INT edge on the analyzer matches the interval from the `E` line's `t_us` to the next `T` sample's `t_us` within 20 µs. This shows the firmware's timestamps sit where the hardware edges are. The five intervals are read off by hand with the analyzer's cursors. |
 
 ### Stage B
 
