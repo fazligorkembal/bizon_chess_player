@@ -23,3 +23,8 @@ __pycache__/
 fp-info-cache
 *.lck
 _autosave-*
+# STM32CubeIDE build output and per-machine indexer state. The .ioc, .project and .cproject
+# stay tracked; debug/ above does not match Debug/ on a case-sensitive filesystem.
+codes_stm32/Debug/
+codes_stm32/Release/
+codes_stm32/.settings/language.settings.xml
