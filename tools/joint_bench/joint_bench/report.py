@@ -40,15 +40,43 @@ def analyze(path, noise_from=None):
     result["horizontal_rms_g"] = analysis.noise_rms(h)
     taps = analysis.detect_taps(h, fs, noise)
     responses = [analysis.tap_response(h, fs, i, noise) for i in taps]
+    twist = analysis.twist_rate(rec.gyro_dps, g)
+    try:
+        xy = analysis.platform_xy(rec.accel_g, g)
+    except ValueError:
+        xy = None  # gravity on X: this mounting has no "along the files" to report
+    result["direction"] = _direction(g, xy, twist)
     result["taps"] = [{"t_s": float(rec.t_s[r.index]), "peak_g": r.peak_g, "freq_hz": r.freq_hz,
-                       "damping": r.damping} for r in responses]
+                       "damping": r.damping, **_tap_direction(xy, twist, fs, r.index)}
+                      for r in responses]
     result["marks"] = [{"name": n, "to_next_sample_us": d}
                        for n, d in analysis.mark_offsets_us(rec.events, rec.t_us)]
     result["checks"] = _checks(result, fs)
     with open(os.path.join(path, "analysis.json"), "w", encoding="utf-8") as fh:
         json.dump(result, fh, indent=2)
-    _plots(path, rec, h, fs, noise, responses)
+    _plots(path, rec, h, fs, noise, responses, xy, result["direction"]["axis_deg"])
     return result
+
+
+def _direction(g, xy, twist):
+    axis = analysis.principal_axis(xy) if xy is not None else None
+    return {
+        **analysis.tilt(g),
+        "axis_deg": axis.axis_deg if axis else None,
+        "anisotropy": axis.anisotropy if axis else None,
+        "major_rms_g": axis.major_rms_g if axis else None,
+        "minor_rms_g": axis.minor_rms_g if axis else None,
+        "twist_rms_dps": float(np.sqrt(np.mean(twist ** 2))),
+        "twist_peak_dps": float(np.max(np.abs(twist))),
+    }
+
+
+def _tap_direction(xy, twist, fs, index):
+    if xy is None:
+        return {"axis_deg": None, "anisotropy": None, "twist_peak_dps": None, "kind": None}
+    e = analysis.event_direction(xy, twist, fs, index)
+    return {"axis_deg": e.axis_deg, "anisotropy": e.anisotropy,
+            "twist_peak_dps": e.twist_peak_dps, "kind": e.kind}
 
 
 def _checks(result, fs):
@@ -64,7 +92,7 @@ def _checks(result, fs):
     }
 
 
-def _plots(path, rec, h, fs, noise, responses):
+def _plots(path, rec, h, fs, noise, responses, xy, axis_deg):
     mag = np.hypot(h[:, 0], h[:, 1])
     fig, ax = plt.subplots(figsize=(10, 3.5))
     ax.plot(rec.t_s, mag * 1000, lw=0.5)
@@ -96,6 +124,22 @@ def _plots(path, rec, h, fs, noise, responses):
     fig.savefig(os.path.join(path, "psd.png"), dpi=120)
     plt.close(fig)
 
+    if xy is None:
+        return
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.plot(xy[:, 0] * 1000, xy[:, 1] * 1000, ",", alpha=0.4)
+    reach = float(np.max(np.hypot(xy[:, 0], xy[:, 1]))) * 1000
+    c, s = np.cos(np.radians(axis_deg)), np.sin(np.radians(axis_deg))
+    ax.plot([-reach * c, reach * c], [-reach * s, reach * s], color="tab:red", lw=0.8,
+            label=f"main axis {axis_deg:.0f} deg")
+    ax.set_xlabel("X, files a-h [mg]")
+    ax.set_ylabel("Y, ranks 1-8 [mg]")
+    ax.set_aspect("equal")
+    ax.legend(loc="upper right")
+    fig.tight_layout()
+    fig.savefig(os.path.join(path, "direction.png"), dpi=120)
+    plt.close(fig)
+
 
 def summary(result):
     lines = [f"{result['label']}: {result['integrity']['samples']} samples"
@@ -108,9 +152,20 @@ def summary(result):
     lines.append(f"  gravity {g['magnitude_g']:.4f} g, vertical axis {g['vertical_axis']}")
     lines.append(f"  horizontal noise {result['noise_rms_g'] * 1000:.3f} mg rms"
                  f" ({result['noise_source']})")
+    d = result["direction"]
+    lines.append(f"  tilt {d['tilt_deg']:.2f} deg (roll {d['roll_deg']:.2f}, "
+                 f"pitch {d['pitch_deg']:.2f})")
+    if d["axis_deg"] is None:
+        lines.append("  no direction: the module is not flat, its X axis is near vertical")
+    else:
+        lines.append(f"  main axis {d['axis_deg']:.0f} deg from X, "
+                     f"anisotropy {d['anisotropy']:.1f}")
+    lines.append(f"  twist {d['twist_rms_dps']:.3f} dps rms, {d['twist_peak_dps']:.2f} dps peak")
     for t in result["taps"]:
+        where = "" if t["kind"] is None else (f", {t['kind']}, axis {t['axis_deg']:.0f} deg, "
+                                              f"twist {t['twist_peak_dps']:.2f} dps")
         lines.append(f"  tap at {t['t_s']:.2f} s: peak {t['peak_g'] * 1000:.1f} mg, "
-                     f"{t['freq_hz']:.1f} Hz, damping {t['damping']:.3f}")
+                     f"{t['freq_hz']:.1f} Hz, damping {t['damping']:.3f}{where}")
     for m in result["marks"]:
         lines.append(f"  {m['name']}: next sample {m['to_next_sample_us']} us later")
     for name, ok in result["checks"].items():

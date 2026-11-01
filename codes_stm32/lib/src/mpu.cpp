@@ -95,7 +95,7 @@ const char * plan_config(Chip chip, const Config & want, Plan * out)
     add(reg::kConfig, g.code);
     accel_hz = a.hz;
   }
-  add(reg::kGyroConfig, 1u << 3);  // +-500 dps; streamed, but no metric uses it
+  add(reg::kGyroConfig, 1u << 3);  // +-500 dps; GYRO_LSB_PER_DPS in the host tool follows this
   add(reg::kAccelConfig, fs_bits);
   if (chip == Chip::Mpu6500) {
     add(reg::kAccelConfig2, nearest(kMpu6500Accel, want.dlpf_hz).code);

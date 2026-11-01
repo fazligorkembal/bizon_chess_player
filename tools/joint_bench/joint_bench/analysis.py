@@ -1,4 +1,4 @@
-"""Analysis of one recording: sample integrity, gravity, noise, spectrum, taps, marks.
+"""Analysis of one recording: sample integrity, gravity, noise, spectrum, taps, marks, direction.
 
 Everything here is a pure function of arrays, so it is tested on synthetic signals with
 known answers. Accelerations are in g; times in seconds unless a name says otherwise.
@@ -12,6 +12,16 @@ import numpy as np
 import yaml
 from scipy import signal
 
+GYRO_LSB_PER_DPS = 65.5  # the firmware sets +-500 dps, see GYRO_CONFIG in mpu.cpp
+
+ANISOTROPY_CAP = 1000.0   # a perfect line has no minor axis; JSON has no infinity
+CLEAR_AXIS_ANISOTROPY = 2.0  # major RMS over minor RMS below this has no usable axis
+AXIS_TOLERANCE_DEG = 30.0    # this close to X or Y counts as along it; between is diagonal
+# Peak twist rate over peak acceleration above this is a twist, not a tap. A rotation about a
+# centre r away, ringing at f, gives 1 / (2 pi f r): about 7.5 dps/g at 0.3 m and 40 Hz, while
+# a tap through the mass centre gives almost none. Provisional until test A8 has real data.
+TWIST_DPS_PER_G = 5.0
+
 
 @dataclass
 class Recording:
@@ -20,6 +30,7 @@ class Recording:
     t_s: np.ndarray        # firmware time, seconds from the first sample
     t_us: np.ndarray       # firmware time, raw microseconds
     accel_g: np.ndarray    # shape (n, 3)
+    gyro_dps: np.ndarray   # shape (n, 3)
     events: list           # [(t_us, name)]
 
 
@@ -38,7 +49,8 @@ def load(path):
             events.append((int(row["t_us"]), row["name"]))
     t_us = data[:, 1]
     return Recording(meta=meta, seq=data[:, 0], t_us=t_us, t_s=(t_us - t_us[0]) / 1e6,
-                     accel_g=data[:, 2:5] / lsb, events=events)
+                     accel_g=data[:, 2:5] / lsb, gyro_dps=data[:, 5:8] / GYRO_LSB_PER_DPS,
+                     events=events)
 
 
 def integrity(seq, t_us):
@@ -80,6 +92,103 @@ def horizontal(accel_g, g):
     e1, e2 = horizontal_basis(g)
     dyn = accel_g - g
     return np.column_stack([dyn @ e1, dyn @ e2])
+
+
+def tilt(g):
+    """How far the sensor sits from flat, in degrees. Upside down still counts as flat."""
+    gx, gy, gz = g
+    return {
+        "tilt_deg": float(np.degrees(np.arctan2(np.hypot(gx, gy), abs(gz)))),
+        "roll_deg": float(np.degrees(np.arctan2(gy, gz))),
+        "pitch_deg": float(np.degrees(np.arctan2(-gx, np.hypot(gy, gz)))),
+    }
+
+
+def platform_axes(g):
+    """Horizontal unit vectors along the sensor's X and Y, so a direction can be read off the
+    board: mounted as the runbook says, X runs along the files and Y along the ranks.
+    horizontal_basis() picks an arbitrary pair, which is fine for magnitudes but not here."""
+    u = g / np.linalg.norm(g)
+    if abs(u[0]) > np.cos(np.radians(30.0)):
+        raise ValueError("the sensor's X axis is too close to vertical to define a direction")
+    ex = np.array([1.0, 0.0, 0.0]) - u[0] * u
+    ex /= np.linalg.norm(ex)
+    return ex, np.cross(u, ex)
+
+
+def platform_xy(accel_g, g):
+    """(n, 2) dynamic acceleration along platform_axes(g)."""
+    ex, ey = platform_axes(g)
+    dyn = accel_g - g
+    return np.column_stack([dyn @ ex, dyn @ ey])
+
+
+@dataclass
+class PrincipalAxis:
+    axis_deg: float    # from X towards Y, in (-90, 90]; an axis has no sign
+    anisotropy: float  # major RMS over minor RMS: 1 is no preferred direction
+    major_rms_g: float
+    minor_rms_g: float
+
+
+def principal_axis(xy):
+    """Dominant direction of horizontal motion, from the covariance of xy."""
+    centred = xy - xy.mean(axis=0)
+    values, vectors = np.linalg.eigh(centred.T @ centred / len(centred))
+    minor, major = np.sqrt(np.maximum(values, 0.0))
+    angle = float(np.degrees(np.arctan2(vectors[1, 1], vectors[0, 1])))
+    if angle > 90.0:
+        angle -= 180.0
+    elif angle <= -90.0:
+        angle += 180.0
+    if major == 0.0:
+        anisotropy = 1.0
+    elif minor * ANISOTROPY_CAP <= major:
+        anisotropy = ANISOTROPY_CAP
+    else:
+        anisotropy = float(major / minor)
+    return PrincipalAxis(angle, anisotropy, float(major), float(minor))
+
+
+def twist_rate(gyro_dps, g):
+    """(n,) rotation rate about the vertical in dps. joint0 turns about that axis, so its
+    reaction torque shows up here. The per-axis median removes the gyro's bias."""
+    return (gyro_dps - np.median(gyro_dps, axis=0)) @ (g / np.linalg.norm(g))
+
+
+def classify_event(axis_deg, anisotropy, peak_g, twist_peak_dps):
+    """One of x, y, diagonal, twist, unclear. Twist is checked first: a twist also moves the
+    sensor along a line, tangentially, so the axis alone cannot tell it from a tap."""
+    if peak_g > 0.0 and twist_peak_dps / peak_g >= TWIST_DPS_PER_G:
+        return "twist"
+    if anisotropy < CLEAR_AXIS_ANISOTROPY:
+        return "unclear"
+    angle = abs(axis_deg)
+    if angle <= AXIS_TOLERANCE_DEG:
+        return "x"
+    if angle >= 90.0 - AXIS_TOLERANCE_DEG:
+        return "y"
+    return "diagonal"
+
+
+@dataclass
+class EventDirection:
+    axis_deg: float
+    anisotropy: float
+    peak_g: float
+    twist_peak_dps: float
+    kind: str
+
+
+def event_direction(xy, twist, fs, index, window_s=0.5):
+    """Direction of the motion in the window after one detected event."""
+    stop = index + int(window_s * fs)
+    seg = xy[index:stop]
+    axis = principal_axis(seg)
+    peak = float(np.max(np.hypot(seg[:, 0], seg[:, 1])))
+    twist_peak = float(np.max(np.abs(twist[index:stop])))
+    return EventDirection(axis.axis_deg, axis.anisotropy, peak, twist_peak,
+                          classify_event(axis.axis_deg, axis.anisotropy, peak, twist_peak))
 
 
 def noise_rms(h):
