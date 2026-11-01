@@ -4,14 +4,15 @@
 # line on success, the decisive errors on failure. The full log is always kept.
 #
 # Usage:
-#   fwbuild            compile the STM32 target (needs the CubeMX project generated)
+#   fwbuild            compile the STM32 target (needs a CMake project; the current one
+#                      builds in STM32CubeIDE instead)
 #   fwbuild --test     build and run the lib/ unit tests with the host compiler
 #   fwbuild --log      print the path of the last full log
 set -uo pipefail
 
 SELF="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REPO="${BIZON_REPO:-$(dirname "$SELF")}"
-FW="$REPO/firmware/joint_bench"
+FW="$REPO/codes_stm32"
 LOGDIR="${BIZON_LOGDIR:-$HOME/.cache/bizon-build}"
 LAST="$LOGDIR/fw-last.log"
 DOCKERFILE="$REPO/docker/dockerfile-firmware"
@@ -37,7 +38,7 @@ if [ "$MODE" = test ]; then
   INNER="cmake -S lib -B /tmp/host -G Ninja && cmake --build /tmp/host && ctest --test-dir /tmp/host --output-on-failure"
 else
   if [ ! -f "$FW/CMakePresets.json" ]; then
-    echo "no CubeMX project in $FW yet; generate it from joint_bench.ioc first" >&2
+    echo "no CMake project in $FW: the target builds in STM32CubeIDE; use --test here" >&2
     exit 1
   fi
   # A throwaway build directory, so a build here never fights with the bench machine's

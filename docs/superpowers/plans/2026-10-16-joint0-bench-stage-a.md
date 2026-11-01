@@ -26,9 +26,8 @@ blocks of finished tasks are left as the record of what was committed.
 - **Toolchain:** the user creates, builds and flashes the project in STM32CubeIDE 1.18.1, which still
   has the built-in `.ioc` editor (2.x dropped it). There is no generated CMake project, so
   `scripts/fwbuild` remains only for `--test`, the host tests of `lib/`.
-- **Project location, open:** the user created the CubeIDE project as `codes_stm32/` at the
-  repository root, while Task 10 and the host tests expect `firmware/joint_bench/` beside `lib/`.
-  Settle this before Task 10 Step 2: move the project, or link `lib/` into it and adjust the paths.
+- **Project location:** the CubeIDE project is `codes_stm32/` at the repository root, and `lib/`
+  moved into it. Read `firmware/joint_bench/` in the finished tasks below as `codes_stm32/`.
 - **Generated KiCad files** still say F411 in the part label. The label is cosmetic; regenerate
   once `scripts/kicad-cli` can run here.
 
@@ -4497,10 +4496,10 @@ git commit -m "feat(tools): analyse bench recordings for sample integrity, noise
 ### Task 10: The CubeMX project and the seam
 
 **Files:**
-- Create **[HUMAN]**: `firmware/joint_bench/joint_bench.ioc` and everything CubeMX generates beside it.
-- Create: `firmware/joint_bench/app/app.h`, `firmware/joint_bench/app/app.cpp` (placeholder)
-- Modify (generated files, inside `USER CODE` blocks only): `firmware/joint_bench/Core/Src/main.c`, `firmware/joint_bench/USB_DEVICE/App/usbd_cdc_if.c`
-- Modify: `firmware/joint_bench/.cproject` (through CubeIDE's project properties dialogs)
+- Create **[HUMAN]**: `codes_stm32/codes_stm32.ioc` and everything CubeMX generates beside it.
+- Create: `codes_stm32/app/app.h`, `codes_stm32/app/app.cpp` (placeholder)
+- Modify (generated files, inside `USER CODE` blocks only): `codes_stm32/Core/Src/main.c`, `codes_stm32/USB_DEVICE/App/usbd_cdc_if.c`
+- Modify: `codes_stm32/.cproject` (through CubeIDE's project properties dialogs)
 
 **Interfaces:**
 - Consumes: `lib/` (Tasks 4-7), compiled into the target from here on.
@@ -4514,7 +4513,7 @@ git commit -m "feat(tools): analyse bench recordings for sample integrity, noise
 
 Stop and ask the user to do this in STM32CubeIDE 1.18.1, then commit the result. Every setting comes from the design doc §4.2.
 
-1. **File → New → STM32 Project** → MCU selector → `STM32F401CEUx`. Project name `joint_bench`; untick *Use default location* and set the location to the repository's `firmware/` folder, so the `.ioc` lands at `firmware/joint_bench/joint_bench.ioc`, beside the existing `lib/`; Targeted Language *C++*; Binary *Executable*; Project Type *STM32Cube*. The wizard's handling of the existing folder is untested: if it refuses, or nests the project differently, stop and report it.
+1. **File → New → STM32 Project** → MCU selector → `STM32F401CEUx`. Project name `codes_stm32`; untick *Use default location* and set the location to the repository root, so the `.ioc` lands at `codes_stm32/codes_stm32.ioc`; Targeted Language *C++*; Binary *Executable*; Project Type *STM32Cube*.
 2. **System Core → RCC:** High Speed Clock (HSE) = *Crystal/Ceramic Resonator*. Low Speed Clock (LSE) = *Disable*.
 3. **System Core → SYS:** Debug = *Serial Wire*. Timebase Source = *SysTick*.
 4. **Connectivity → I2C1:** mode *I2C*. Make sure the pins are **PB6 = I2C1_SCL, PB7 = I2C1_SDA** (click the pin in the chip view to reassign if CubeMX picked PB8/PB9). Parameter Settings: I2C Speed Mode = *Fast Mode*, Clock Speed = *400000*. DMA Settings: *Add* `I2C1_RX`, priority *High*, mode *Normal*. NVIC Settings: tick *I2C1 event interrupt* and *I2C1 error interrupt*.
@@ -4531,15 +4530,15 @@ Stop and ask the user to do this in STM32CubeIDE 1.18.1, then commit the result.
 12. **Generate Code.** Commit:
 
 ```bash
-git add firmware/joint_bench
+git add codes_stm32
 git commit -m "build(firmware): generate the joint_bench STM32CubeIDE project"
 ```
 
-Before continuing, confirm these files exist in `firmware/joint_bench/`: `.project`, `.cproject`, `joint_bench.ioc`, `Core/Src/main.c`, `Core/Inc/main.h`, `Core/Inc/i2c.h`, `USB_DEVICE/App/usbd_cdc_if.c`. If CubeIDE laid them out differently, adjust the paths in the steps below to match; the edits themselves do not change.
+Before continuing, confirm these files exist in `codes_stm32/`: `.project`, `.cproject`, `codes_stm32.ioc`, `Core/Src/main.c`, `Core/Inc/main.h`, `Core/Inc/i2c.h`, `USB_DEVICE/App/usbd_cdc_if.c`. If CubeIDE laid them out differently, adjust the paths in the steps below to match; the edits themselves do not change.
 
 - [ ] **Step 2: Write the seam header and the placeholder application**
 
-`firmware/joint_bench/app/app.h`:
+`codes_stm32/app/app.h`:
 
 ```c
 /*
@@ -4575,7 +4574,7 @@ void app_usb_tx_done(void);
 #endif  /* JOINT_BENCH_APP_H_ */
 ```
 
-`firmware/joint_bench/app/app.cpp`:
+`codes_stm32/app/app.cpp`:
 
 ```cpp
 // Placeholder application: proves the CubeMX seam builds, flashes and runs before any bench
@@ -4682,7 +4681,7 @@ Ask the user to build on the bench machine, flash with the ST-Link, and report: 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add firmware/joint_bench
+git add codes_stm32
 git commit -m "feat(firmware): wire the CubeMX project to the bench application seam"
 ```
 
@@ -4691,8 +4690,8 @@ git commit -m "feat(firmware): wire the CubeMX project to the bench application 
 ### Task 11: Drivers and the bench application
 
 **Files:**
-- Create: `firmware/joint_bench/drivers/clock.hpp`, `drivers/clock.cpp`, `drivers/usb_port.hpp`, `drivers/usb_port.cpp`, `drivers/imu.hpp`, `drivers/imu.cpp`
-- Modify: `firmware/joint_bench/app/app.cpp` (replace whole file)
+- Create: `codes_stm32/drivers/clock.hpp`, `drivers/clock.cpp`, `drivers/usb_port.hpp`, `drivers/usb_port.cpp`, `drivers/imu.hpp`, `drivers/imu.cpp`
+- Modify: `codes_stm32/app/app.cpp` (replace whole file)
 
 **Interfaces:**
 - Consumes: `app.h`, CubeMX pin labels and handles (Task 10); `CycleClock`, `SpscQueue`, `LineRing` (Task 4); `TextWriter`, `ImuSample`, `format_sample`, `format_event`, `kMaxLine` (Task 5); `LineAssembler`, `parse_command`, `Command` (Task 6); `jb::mpu::*` (Task 7). The exact reply strings in Task 8's Interfaces.
@@ -4702,7 +4701,7 @@ This task's logic is the HAL-facing glue; everything that could be tested on the
 
 - [ ] **Step 1: Write the clock**
 
-`firmware/joint_bench/drivers/clock.hpp`:
+`codes_stm32/drivers/clock.hpp`:
 
 ```cpp
 #pragma once
@@ -4722,7 +4721,7 @@ uint64_t now_us();
 }  // namespace jb
 ```
 
-`firmware/joint_bench/drivers/clock.cpp`:
+`codes_stm32/drivers/clock.cpp`:
 
 ```cpp
 #include "clock.hpp"
@@ -4758,7 +4757,7 @@ uint64_t now_us()
 
 - [ ] **Step 2: Write the USB port**
 
-`firmware/joint_bench/drivers/usb_port.hpp`:
+`codes_stm32/drivers/usb_port.hpp`:
 
 ```cpp
 #pragma once
@@ -4788,7 +4787,7 @@ void usb_tx_done_isr();
 }  // namespace jb
 ```
 
-`firmware/joint_bench/drivers/usb_port.cpp`:
+`codes_stm32/drivers/usb_port.cpp`:
 
 ```cpp
 #include "usb_port.hpp"
@@ -4886,7 +4885,7 @@ void usb_tx_done_isr()
 
 - [ ] **Step 3: Write the IMU driver**
 
-`firmware/joint_bench/drivers/imu.hpp`:
+`codes_stm32/drivers/imu.hpp`:
 
 ```cpp
 #pragma once
@@ -4939,7 +4938,7 @@ void imu_on_read_error();
 }  // namespace jb
 ```
 
-`firmware/joint_bench/drivers/imu.cpp`:
+`codes_stm32/drivers/imu.cpp`:
 
 ```cpp
 #include "imu.hpp"
@@ -5151,7 +5150,7 @@ extern "C" void HAL_I2C_ErrorCallback(I2C_HandleTypeDef * hi2c)
 
 - [ ] **Step 4: Replace the placeholder application**
 
-`firmware/joint_bench/app/app.cpp`:
+`codes_stm32/app/app.cpp`:
 
 ```cpp
 #include "app.h"
@@ -5420,7 +5419,7 @@ Expected: `Build Finished. 0 errors`, no warnings from `app/`, `drivers/` or `li
 - [ ] **Step 6: Commit**
 
 ```bash
-git add firmware/joint_bench
+git add codes_stm32
 git commit -m "feat(firmware): stream timestamped IMU samples over USB CDC"
 ```
 
@@ -5502,7 +5501,7 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 ## 5. Flash
 
 1. ST-Link to the BlackPill's SWD header (3V3, SWDIO, SWCLK, GND).
-2. Build on the development machine from `firmware/joint_bench` (CubeIDE, or
+2. Build on the development machine from `codes_stm32` (CubeIDE, or
    `cmake --preset Debug && cmake --build build/Debug`) and flash `joint_bench.elf` with
    STM32CubeProgrammer or OpenOCD.
 3. The LED blinks fast (no IMU yet). The PC sees a USB serial port (VID:PID 0483:5740).
@@ -5625,7 +5624,7 @@ with:
 
 - [ ] **Step 3: Check every command in the runbook against the code**
 
-Run each of these and compare with the runbook text: `python3 -m joint_bench --help`, `python3 -m joint_bench record --help`, `python3 -m joint_bench analyze --help` (from `tools/joint_bench`); `grep -n '"OK \|reply_text' firmware/joint_bench/app/app.cpp` for the reply strings the runbook quotes. Fix the runbook wherever they differ.
+Run each of these and compare with the runbook text: `python3 -m joint_bench --help`, `python3 -m joint_bench record --help`, `python3 -m joint_bench analyze --help` (from `tools/joint_bench`); `grep -n '"OK \|reply_text' codes_stm32/app/app.cpp` for the reply strings the runbook quotes. Fix the runbook wherever they differ.
 
 - [ ] **Step 4: Commit**
 

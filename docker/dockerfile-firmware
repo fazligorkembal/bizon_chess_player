@@ -1,4 +1,4 @@
-# Toolchain for firmware/joint_bench. It compile-checks the STM32 target and runs the
+# Toolchain for codes_stm32. It compile-checks the STM32 target and runs the
 # host-side unit tests of lib/; flashing and running on hardware happen on the bench
 # machine. Base image and packages are pinned so a rebuild months from now produces the
 # same compiler: an unpinned toolchain is how a working build breaks without a commit.

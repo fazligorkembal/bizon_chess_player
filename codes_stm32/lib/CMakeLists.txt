@@ -1,6 +1,6 @@
 # Host build of lib/: the firmware's pure logic, compiled with the host compiler and tested
-# with GoogleTest. The target build compiles the same sources from the CubeMX project's
-# top-level CMakeLists.txt; this file is never used for the target.
+# with GoogleTest. The target build compiles the same sources from the CubeIDE project;
+# this file is never used for the target.
 #
 # Sources and tests are globbed so that adding a module is adding its two files, with no
 # edit here. CONFIGURE_DEPENDS makes a new file trigger a re-glob on the next build.

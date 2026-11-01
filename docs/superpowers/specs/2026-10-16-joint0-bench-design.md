@@ -216,10 +216,10 @@ and never edited by hand. KiCad is not installed on the host: `scripts/kicad-cli
 
 ### 4.1 Toolchain and layout
 
-The firmware lives in `firmware/joint_bench/`. It is not a ROS package and is not part of the
+The firmware lives in `codes_stm32/`. It is not a ROS package and is not part of the
 colcon workspace.
 
-- **`joint_bench.ioc`** is the STM32CubeIDE project, with Toolchain/IDE set to **STM32CubeIDE** and
+- **`codes_stm32.ioc`** is the STM32CubeIDE project, with Toolchain/IDE set to **STM32CubeIDE** and
   "Generate peripheral initialization as a pair of .c/.h files" enabled. It is committed along
   with the generated code, so the project builds on a machine without CubeMX. The `.ioc`
   records the CubeMX version and the `STM32Cube FW_F4` package version; those are the pins for
