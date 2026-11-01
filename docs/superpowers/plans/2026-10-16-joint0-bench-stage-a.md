@@ -17,9 +17,8 @@ not the F411 this plan was written for. These points override any older text bel
 blocks of finished tasks are left as the record of what was committed.
 
 - **Clock:** 84 MHz, the F401's maximum. HSE 25 MHz, PLL M = 25, N = 336, P = 4, Q = 7, 2 flash
-  wait states. The 25 MHz crystal is assumed and not yet measured: USB enumeration on a build
-  clocked from HSE is the check. The firmware found on the board clocks from HSI, so its working
-  USB proves nothing about the crystal.
+  wait states. The 25 MHz crystal is confirmed: on 2026-11-01 USB enumerated on a build clocked from
+  HSE, with RCC reading back M = 25, N = 336, P = 4, Q = 7 and the PLL as system clock.
 - **Memory:** 96 KB RAM instead of 128 KB; 512 KB flash, unchanged.
 - **Pins:** unchanged. Every alternate function in the allocation exists on the F401 with the same
   AF number, compared against CubeIDE's `STM32F401C(D-E)Ux.xml` and

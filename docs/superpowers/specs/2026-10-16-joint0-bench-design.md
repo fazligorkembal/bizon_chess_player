@@ -239,8 +239,8 @@ colcon workspace.
 
 **Clock.** HSE 25 MHz crystal → PLL with M = 25, N = 336, P = 4, Q = 7. That gives SYSCLK
 84 MHz, the F401's maximum, and exactly 48 MHz for USB. AHB = 84 MHz, APB1 = 42 MHz (APB1 timers
-84 MHz), APB2 = 84 MHz. Flash latency 2 wait states. The crystal's value is assumed until USB
-enumerates on a build clocked from HSE.
+84 MHz), APB2 = 84 MHz. Flash latency 2 wait states. USB enumerated on this clock tree on 2026-11-01,
+which confirms the 25 MHz crystal.
 
 **Peripherals:**
 
