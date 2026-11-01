@@ -26,8 +26,8 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 HW = os.path.join(REPO, "hardware", "joint_bench")
 KICAD_CLI = os.environ.get("KICAD_CLI", os.path.join(REPO, "scripts", "kicad-cli"))
 NOTES = [
-    "GY-87 cable, 30-60 cm: J1 VCC to VCC_IN, GND to GND, SCL to SCL, SDA to SDA, INT to INTA.",
-    "Tie the GY-87's FSYNC pin to its GND at the module end. Twist SCL with GND, SDA with VCC.",
+    "GY-521 cable, 30-60 cm: J1 VCC to VCC, GND to GND, SCL to SCL, SDA to SDA, INT to INT.",
+    "Leave the GY-521's XDA, XCL and AD0 unconnected. Twist SCL with GND, SDA with VCC.",
     "J2: logic analyzer CH0-CH7 then GND. Never clip an analyzer channel to VM or a motor coil.",
 ]
 

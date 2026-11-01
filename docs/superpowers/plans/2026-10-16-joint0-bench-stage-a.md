@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and bring up the stage-A bench (BlackPill F401 and a GY-87 IMU on a 6 × 9 cm trial perfboard), with generated board drawings to solder from, firmware that streams timestamped 1 kHz IMU data over USB, and a host tool that records and analyses it against acceptance tests A1-A7.
+**Goal:** Build and bring up the stage-A bench (BlackPill F401 and a GY-521 IMU on a 6 × 9 cm trial perfboard), with generated board drawings to solder from, firmware that streams timestamped 1 kHz IMU data over USB, and a host tool that records and analyses it against acceptance tests A1-A7.
 
 **Architecture:** Three independent parts meet at two contracts. The board is described once in `hardware/joint_bench/nets.yaml`; `tools/kicad_gen` generates the KiCad schematic, a hole-grid placement board and a soldering checklist from it, and verifies the schematic's exported netlist against it. The firmware is a CubeMX project whose generated C calls four functions in `app/app.h`; all logic that can run on a host lives in `lib/` and is unit-tested with GoogleTest, while `drivers/` wraps HAL. The host tool `tools/joint_bench` speaks the firmware's line protocol (spec §4.4), records to `debug/bench/`, and analyses recordings with pure functions tested on synthetic signals.
 
@@ -28,12 +28,10 @@ blocks of finished tasks are left as the record of what was committed.
   `scripts/fwbuild` remains only for `--test`, the host tests of `lib/`.
 - **Project location:** the CubeIDE project is `codes_stm32/` at the repository root, and `lib/`
   moved into it.
-- **Generated KiCad files** still say F411 in the part label. The label is cosmetic; regenerate
-  once `scripts/kicad-cli` can run here.
 
 ## Global Constraints
 
-- Scope is stage A only: BlackPill, GY-87 IMU, logic-analyzer header, MARK line. No TMC2209, motor, 24 V, endstop or `VM` sense circuitry is built, drawn or coded here.
+- Scope is stage A only: BlackPill, GY-521 IMU, logic-analyzer header, MARK line. No TMC2209, motor, 24 V, endstop or `VM` sense circuitry is built, drawn or coded here.
 - Pins (spec §3.1): IMU SCL **PB6**, SDA **PB7** (I2C1, AF4, Fast Mode 400 kHz); IMU INT **PA2** (EXTI2, rising edge); MARK **PA4** (output, starts low); LED **PC13** (active low). PA13/PA14 are never allocated.
 - Clock (spec §4.2): HSE 25 MHz; PLL M = 25, N = 336, P = 4, Q = 7; SYSCLK 84 MHz; USB 48 MHz; AHB 84 MHz; APB1 42 MHz; APB2 84 MHz; flash latency 2 wait states.
 - NVIC order, highest first: step timers (reserved, stage B); EXTI2, I2C1 event/error and I2C1 RX DMA; TIM4 tick (stage B); USB OTG FS; SysTick.
@@ -56,7 +54,7 @@ blocks of finished tasks are left as the record of what was committed.
 The five failure modes most likely to bite a person using this, that the spec implies but no ordinary unit test reaches. Each has a test in the task named.
 
 1. **USB not enumerated, or unplugged mid-stream while the board stays powered.** Expected: no hard fault, and after replug the console answers and streams again. `CDC_Transmit_FS` dereferences null class data before enumeration, and an unplugged transfer never completes. Owner: Task 11 (bench step R3; the guard is in `usb_pump()`).
-2. **The GY-87 not connected at power-up, or connected later.** Expected: the firmware keeps running, the LED blinks fast, `imu info` probes again and succeeds once the cable is in. Owner: Task 11 (bench step R1).
+2. **The GY-521 not connected at power-up, or connected later.** Expected: the firmware keeps running, the LED blinks fast, `imu info` probes again and succeeds once the cable is in. Owner: Task 11 (bench step R1).
 3. **The host stops reading mid-stream** (console suspended, recorder killed). Expected: sampling continues, losses show as `tx_drop` and `seq` gaps, the stream resumes; a killed recording leaves no `meta.yaml` and the analyser refuses it. Owners: Task 4 (`LineRing` drop test), Task 8 (recorder stall test), Task 9 (`load` refuses an interrupted recording), Task 11 (bench step R2).
 4. **Input that would corrupt the CSV stream**: a mark label containing a comma or space, or an overlong command line. Expected: rejected with an `ERR` line, never echoed into a `T` or `E` line, and never run as a truncated or split command. Owner: Task 6 (parser and assembler tests).
 5. **The real BlackPill does not match the drawing** (silkscreen order or row spacing). Expected: caught before soldering. Owners: Task 3 (row-spacing test on `pad_holes`, and the **[HUMAN]** silkscreen and caliper check).
@@ -105,7 +103,7 @@ tools/joint_bench/
 
 docs/hardware/f411-tmc2209-wiring.md         MOD  pin allocation: IMU, MARK, J4 STEP, tick timer
 docs/hardware/joint-bench-stage-a-runbook.md NEW  bench procedure, tests A1-A7, R1-R3
-docs/superpowers/specs/2026-10-16-joint0-bench-design.md  MOD  GY-87, trial board, A7
+docs/superpowers/specs/2026-10-16-joint0-bench-design.md  MOD  GY-521, trial board, A7
 ```
 
 ---
@@ -934,15 +932,15 @@ title: Joint0 bench - stage A
 
 parts:
   U1: {kind: blackpill, value: WeAct BlackPill F411CEU6}
-  # The GY-87 sits on the platform beside the chessboard, 30-60 cm away; this is the
-  # perfboard end of its cable. FSYNC is tied to GND at the module end, not here.
-  J1: {kind: header, value: IMU GY-87, pins: [VCC, GND, SCL, SDA, INT]}
+  # The GY-521 sits on the platform beside the chessboard, 30-60 cm away; this is the
+  # perfboard end of its cable. The module breaks out no FSYNC pin.
+  J1: {kind: header, value: IMU GY-521, pins: [VCC, GND, SCL, SDA, INT]}
   J2:
     kind: header
     value: Logic analyzer
     pins: [CH0_STEP, CH1_DIR, CH2_ENDSTOP, CH3_TMC_UART, CH4_SCL, CH5_SDA, CH6_IMU_INT, CH7_MARK, GND]
   J3: {kind: header, value: Test points, pins: [3V3, 5V, GND]}
-  # 2.2k pull-ups in parallel with the GY-87's own. Open the jumpers when the module's
+  # 2.2k pull-ups in parallel with the GY-521's own. Open the jumpers when the module's
   # pull-ups alone already measure 2.7k or less, or the bus sinks more than 3 mA.
   JP1: {kind: header, value: SCL pull-up, pins: [A, B]}
   JP2: {kind: header, value: SDA pull-up, pins: [A, B]}
@@ -998,8 +996,8 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 HW = os.path.join(REPO, "hardware", "joint_bench")
 KICAD_CLI = os.environ.get("KICAD_CLI", os.path.join(REPO, "scripts", "kicad-cli"))
 NOTES = [
-    "GY-87 cable, 30-60 cm: J1 VCC to VCC_IN, GND to GND, SCL to SCL, SDA to SDA, INT to INTA.",
-    "Tie the GY-87's FSYNC pin to its GND at the module end. Twist SCL with GND, SDA with VCC.",
+    "GY-521 cable, 30-60 cm: J1 VCC to VCC, GND to GND, SCL to SCL, SDA to SDA, INT to INT.",
+    "Leave the GY-521's XDA, XCL and AD0 unconnected. Twist SCL with GND, SDA with VCC.",
     "J2: logic analyzer CH0-CH7 then GND. Never clip an analyzer channel to VM or a motor coil.",
 ]
 
@@ -1093,7 +1091,7 @@ Replace the row `| Spare timer | TIM5 | — | reserved for the 100 Hz control ti
 After the row `| Heartbeat / fault LED | PC13 | GPIO out | |` insert:
 
 ```
-| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-87 on the platform, 400 kHz |
+| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-521 on the platform, 400 kHz |
 | IMU SDA | PB7 | I2C1_SDA (AF4), open-drain | |
 | IMU INT | PA2 | input, EXTI2, rising edge | data ready; the sample clock |
 | `VM` sense | PA3 | ADC1_IN3 | 100k/10k divider, stage B |
@@ -1147,10 +1145,10 @@ with:
 
 ```
 - **IMU connector**, 5 pins: `VCC` (from the BlackPill 5 V pin), `GND`, `SCL`, `SDA`, `INT`.
-  The board is a GY-87: `VCC_IN`, `GND`, `SCL`, `SDA` and `INTA` are used, and `FSYNC` is
-  tied to the module's `GND` at the module end, because a floating FSYNC input is undefined.
-  It carries its own 3.3 V regulator and pull-ups to it, so it takes 5 V on `VCC_IN` and
-  presents 3.3 V logic.
+  The board is a GY-521: `VCC`, `GND`, `SCL`, `SDA` and `INT` are used, and `XDA`, `XCL` and
+  `AD0` stay unconnected (the firmware tries 0x68, then 0x69). It breaks out no `FSYNC` pin,
+  and the firmware leaves `EXT_SYNC_SET` at 0, so FSYNC is ignored. It carries its own 3.3 V
+  regulator and pull-ups to it, so it takes 5 V on `VCC` and presents 3.3 V logic.
 ```
 
 Replace:
@@ -1193,7 +1191,7 @@ The firmware identifies the chip itself, since the board model is not yet known.
 with:
 
 ```
-The firmware identifies the chip itself: GY-87 boards normally carry an MPU-6050, but clones
+The firmware identifies the chip itself: GY-521 boards normally carry an MPU-6050, but clones
 ship with other parts. It runs
 ```
 
@@ -1208,7 +1206,7 @@ index and the burst's read time.
 with:
 
 ```
-The board is a GY-87, which breaks out `INTA`, so the FIFO fallback once considered here for
+The board is a GY-521, which breaks out `INT`, so the FIFO fallback once considered here for
 boards without an `INT` pin is not built.
 ```
 
@@ -1228,7 +1226,7 @@ with:
 These need to be read off labels or measured. None of them blocks stage A except the trial
 board's hole count, which the placement drawing needs.
 
-- The IMU chip on the GY-87. Firmware test A1 settles it.
+- The IMU chip on the GY-521. Firmware test A1 settles it.
 - The 6 × 9 cm trial board's hole count, and the BlackPill's row spacing. Measure both.
 - The 10 × 10 cm stage-B board, not yet bought.
 ```
@@ -1746,8 +1744,8 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 HW = os.path.join(REPO, "hardware", "joint_bench")
 KICAD_CLI = os.environ.get("KICAD_CLI", os.path.join(REPO, "scripts", "kicad-cli"))
 NOTES = [
-    "GY-87 cable, 30-60 cm: J1 VCC to VCC_IN, GND to GND, SCL to SCL, SDA to SDA, INT to INTA.",
-    "Tie the GY-87's FSYNC pin to its GND at the module end. Twist SCL with GND, SDA with VCC.",
+    "GY-521 cable, 30-60 cm: J1 VCC to VCC, GND to GND, SCL to SCL, SDA to SDA, INT to INT.",
+    "Leave the GY-521's XDA, XCL and AD0 unconnected. Twist SCL with GND, SDA with VCC.",
     "J2: logic analyzer CH0-CH7 then GND. Never clip an analyzer channel to VM or a motor coil.",
 ]
 
@@ -3215,13 +3213,13 @@ Expected: `=== TEST FAILED` with `fatal error: jb/mpu.hpp: No such file or direc
 
 #include <cstdint>
 
-// Register-level logic for the InvenSense MPU-6050 (GY-87) and the MPU-6500 family
+// Register-level logic for the InvenSense MPU-6050 (GY-521) and the MPU-6500 family
 // (MPU-6500, MPU-9250), kept free of I/O so it is testable on the host. The driver in
 // drivers/ performs the writes this module plans.
 namespace jb::mpu
 {
 
-constexpr uint8_t kAddrLow = 0x68;   // AD0 low, the GY-87 default
+constexpr uint8_t kAddrLow = 0x68;   // AD0 low, the GY-521 default
 constexpr uint8_t kAddrHigh = 0x69;  // AD0 high
 
 namespace reg
@@ -5425,10 +5423,10 @@ git commit -m "feat(firmware): stream timestamped IMU samples over USB CDC"
 
 - [ ] **Step 7: [HUMAN] Smoke test on the bench**
 
-Ask the user to flash the new build, connect the GY-87 as in runbook §6 (written in Task 12; the wiring is J1 VCC → VCC_IN, GND → GND, SCL → SCL, SDA → SDA, INT → INTA, FSYNC bridged to GND on the module), and run from `tools/joint_bench`:
+Ask the user to flash the new build, connect the GY-521 as in runbook §6 (written in Task 12; the wiring is J1 VCC → VCC, GND → GND, SCL → SCL, SDA → SDA, INT → INT), and run from `tools/joint_bench`:
 
 1. `python3 -m joint_bench console`, then `ver`. Expected: `OK ver joint_bench <sha>`.
-2. `i2cscan`. Expected: `OK i2cscan 68 77`.
+2. `i2cscan`. Expected: `OK i2cscan 68`.
 3. `imu info`. Expected: `OK imu chip=MPU6050 who=0x68 addr=0x68 rate=1000 dlpf=184 fs=4 lsb_per_g=8192` (another `chip`/`who` is a clone part; note it).
 4. `stream on`, watch the `... N samples` counter climb by about 1000 per second, `stream off`, `stats`. Expected: `imu_overrun=0 i2c_err=0 queue_drop=0`.
 5. Ctrl-D, then `python3 -m joint_bench record -s 10 -l smoke`. Expected: every check line `PASS`.
@@ -5489,9 +5487,10 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 
 1. **Continuity:** every line in the checklist's continuity section must beep end to end.
 2. **Shorts:** nothing in the shorts section may beep. Do the power pairs first.
-3. **GY-87 pull-ups:** with the GY-87 unpowered and disconnected, measure SCL to its 3.3 V
-   pin. If it reads 2.7 kΩ or less, leave JP1 and JP2 open (no jumper caps); otherwise fit
-   both caps. Write down the value.
+3. **GY-521 pull-ups:** the module has no 3.3 V pin. With it unpowered and disconnected, read
+   the code on its SCL pull-up resistor (472 is 4.7 kΩ, 222 is 2.2 kΩ), or measure SCL to the
+   3.3 V output of its regulator. If it is 2.7 kΩ or less, leave JP1 and JP2 open (no jumper
+   caps); otherwise fit both caps. Write down the value.
 
 ## 4. First power
 
@@ -5508,10 +5507,10 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 
 ## 6. Connect the IMU
 
-1. Unplug USB. Wire the GY-87 cable: J1 VCC → VCC_IN, GND → GND, SCL → SCL, SDA → SDA,
-   INT → INTA. On the GY-87 itself, bridge FSYNC to GND.
+1. Unplug USB. Wire the GY-521 cable: J1 VCC → VCC, GND → GND, SCL → SCL, SDA → SDA,
+   INT → INT. Leave XDA, XCL and AD0 on the GY-521 unconnected.
 2. Twist SCL with GND and SDA with VCC; route the cable away from where the motor cable will
-   run. Put the GY-87 on the wooden platform beside the chessboard, flat, and fix it down
+   run. Put the GY-521 on the wooden platform beside the chessboard, flat, and fix it down
    (double-sided tape or a screw): a loose sensor measures its own rattle.
 3. Plug USB. The LED blinks slowly.
 
@@ -5535,7 +5534,7 @@ CH4 and SDA on CH5.
 Record each result in the table at the end.
 
 **A1 — identify.** In `console`: `i2cscan`, then `imu info`.
-Pass: `i2cscan` lists 68 (and 77, the GY-87's BMP180); `imu info` reports a chip. Note
+Pass: `i2cscan` lists only 68 (the GY-521 has no second chip); `imu info` reports a chip. Note
 `chip=` and `who=` and add them to the design doc's Open Items.
 
 **A5 — noise floor** (run before A2, it provides the data). Nobody touches the table:
@@ -5581,7 +5580,7 @@ These pin down failures the unit tests cannot reach.
 
 1. **No IMU at power-up.** Unplug USB, disconnect J1, plug USB: fast blink, and `imu info`
    answers `ERR imu: not found` without the firmware hanging. Reconnect J1 with power on
-   (if the BlackPill resets, that is the GY-87's inrush, not a bug), then `imu info`
+   (if the BlackPill resets, that is the GY-521's inrush, not a bug), then `imu info`
    succeeds and the LED slows down.
 2. **Host stops reading.** In `console`, `stream on`, then suspend it with Ctrl-Z for about
    five seconds, `fg`, `stream off`, `stats`. Pass: `tx_drop` is above zero, the firmware

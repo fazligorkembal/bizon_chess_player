@@ -48,7 +48,7 @@
           (size 1 1)
           (thickness 0.15))
         (justify left)))
-    (property "Value" "WeAct BlackPill F411CEU6"
+    (property "Value" "WeAct BlackPill F401CEU6"
       (at -2.37 19.07 0)
       (layer "F.Fab")
       (uuid "e1c79ee0-35e0-5ea8-bbbf-3383406c2f0c")
@@ -1038,7 +1038,7 @@
           (size 1 1)
           (thickness 0.15))
         (justify left)))
-    (property "Value" "IMU GY-87"
+    (property "Value" "IMU GY-521"
       (at -1.27 12.43 0)
       (layer "F.Fab")
       (uuid "401a0f30-72b7-5db3-9093-b43e65de5bc7")

@@ -34,9 +34,10 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 
 1. **Continuity:** every line in the checklist's continuity section must beep end to end.
 2. **Shorts:** nothing in the shorts section may beep. Do the power pairs first.
-3. **GY-87 pull-ups:** with the GY-87 unpowered and disconnected, measure SCL to its 3.3 V
-   pin. If it reads 2.7 kΩ or less, leave JP1 and JP2 open (no jumper caps); otherwise fit
-   both caps. Write down the value.
+3. **GY-521 pull-ups:** the module has no 3.3 V pin. With it unpowered and disconnected, read
+   the code on its SCL pull-up resistor (472 is 4.7 kΩ, 222 is 2.2 kΩ), or measure SCL to the
+   3.3 V output of its regulator. If it is 2.7 kΩ or less, leave JP1 and JP2 open (no jumper
+   caps); otherwise fit both caps. Write down the value.
 
 ## 4. First power
 
@@ -54,10 +55,10 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 
 ## 6. Connect the IMU
 
-1. Unplug USB. Wire the GY-87 cable: J1 VCC → VCC_IN, GND → GND, SCL → SCL, SDA → SDA,
-   INT → INTA. On the GY-87 itself, bridge FSYNC to GND.
+1. Unplug USB. Wire the GY-521 cable: J1 VCC → VCC, GND → GND, SCL → SCL, SDA → SDA,
+   INT → INT. Leave XDA, XCL and AD0 on the GY-521 unconnected.
 2. Twist SCL with GND and SDA with VCC; route the cable away from where the motor cable will
-   run. Put the GY-87 on the wooden platform beside the chessboard, flat, and fix it down
+   run. Put the GY-521 on the wooden platform beside the chessboard, flat, and fix it down
    (double-sided tape or a screw): a loose sensor measures its own rattle.
 3. Plug USB. The LED blinks slowly.
 
@@ -82,7 +83,7 @@ CH4 and SDA on CH5.
 Record each result in the table at the end.
 
 **A1 — identify.** In `console`: `i2cscan`, then `imu info`.
-Pass: `i2cscan` lists 68 (and 77, the GY-87's BMP180); `imu info` reports a chip. Note
+Pass: `i2cscan` lists only 68 (the GY-521 has no second chip); `imu info` reports a chip. Note
 `chip=` and `who=` and add them to the design doc's Open Items.
 
 **A5 — noise floor** (run before A2, it provides the data). Nobody touches the table:
@@ -129,12 +130,12 @@ These pin down failures the unit tests cannot reach.
 
 1. **No IMU at power-up.** Unplug USB, disconnect J1, plug USB: fast blink, and `imu info`
    answers `ERR imu: not found` without the firmware hanging. Reconnect J1 with power on
-   (if the BlackPill resets, that is the GY-87's inrush, not a bug), then `imu info`
+   (if the BlackPill resets, that is the GY-521's inrush, not a bug), then `imu info`
    succeeds and the LED slows down.
 2. **Host stops reading.** In `console`, `stream on`, then suspend it with Ctrl-Z for about
    five seconds, `fg`, `stream off`, `stats`. Pass: `tx_drop` is above zero, the firmware
    did not reset (`samples` kept counting) and the console works normally.
-3. **USB drops out mid-stream.** Power is never cut: the GY-87 takes its power from USB's 5 V
+3. **USB drops out mid-stream.** Power is never cut: the GY-521 takes its power from USB's 5 V
    (J1 VCC is on the +5V net), so unplugging the cable would also reset the IMU, and that
    would test R1's re-probe rather than the USB code. Instead make the host drop the device
    logically, which leaves VBUS and the IMU powered. Linux only; on another bench machine

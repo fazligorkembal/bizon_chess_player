@@ -8,8 +8,8 @@ hole seen from the component side; the mirrored bottom drawing shows the same nu
 
 | Ref | Part | Pin 1 hole | Runs |
 |---|---|---|---|
-| U1 | WeAct BlackPill F411CEU6 | 2, 5 | two rows, see drawing |
-| J1 | IMU GY-87 | 31, 3 | down |
+| U1 | WeAct BlackPill F401CEU6 | 2, 5 | two rows, see drawing |
+| J1 | IMU GY-521 | 31, 3 | down |
 | JP1 | SCL pull-up | 30, 12 | right |
 | R1 | 2.2k | 24, 12 | right |
 | JP2 | SDA pull-up | 30, 15 | right |

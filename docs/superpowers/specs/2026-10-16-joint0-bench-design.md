@@ -34,7 +34,7 @@ path, so that the numbers it produces mean the same thing when MoveIt is driving
 | Axis | `bizon2rev1` alone, one TMC2209 | Incremental bring-up; the wiring guide's phase 1. |
 | Load | The complete arm, mounted | Settings found on a bare shaft are meaningless once the arm's inertia is attached. |
 | Position feedback | None; step count plus optical endstop | Given. No encoder exists on this machine. |
-| Vibration sensor | The "10DOF" IMU, accelerometer only, on the wooden platform beside the chessboard | Robot base, board and IMU share one platform, so the IMU sees exactly the vibration that walks pieces. Magnetometer and barometer are unused. |
+| Vibration sensor | The GY-521 IMU (MPU-6050), accelerometer only, on the wooden platform beside the chessboard | Robot base, board and IMU share one platform, so the IMU sees exactly the vibration that walks pieces. The module has no magnetometer or barometer. |
 | Where the profile lives | Two stages: MCU-generated first, then replayed as 100 Hz setpoints | Separates the arm's physical limit from the artifacts of the 100 Hz path. The MCU needs a profile generator anyway, for homing and as the velocity/acceleration clamp. |
 | Supply | 24 V | Given. More torque at speed than 12 V; regenerative rise during deceleration is measured, not assumed away. |
 | Firmware base | STM32CubeIDE project, HAL + LL | CubeIDE 1.18.1, with its built-in CubeMX editor, is on the development machine. |
@@ -144,10 +144,10 @@ The wiring guide's allocation table is updated to match as part of this work.
 - **BlackPill** on two 20-pin female headers, never soldered directly to the board. Measure the
   row spacing with calipers before soldering the headers.
 - **IMU connector**, 5 pins: `VCC` (from the BlackPill 5 V pin), `GND`, `SCL`, `SDA`, `INT`.
-  The board is a GY-87: `VCC_IN`, `GND`, `SCL`, `SDA` and `INTA` are used, and `FSYNC` is
-  tied to the module's `GND` at the module end, because a floating FSYNC input is undefined.
-  It carries its own 3.3 V regulator and pull-ups to it, so it takes 5 V on `VCC_IN` and
-  presents 3.3 V logic.
+  The board is a GY-521: `VCC`, `GND`, `SCL`, `SDA` and `INT` are used, and `XDA`, `XCL` and
+  `AD0` stay unconnected (the firmware tries 0x68, then 0x69). It breaks out no `FSYNC` pin,
+  and the firmware leaves `EXT_SYNC_SET` at 0, so FSYNC is ignored. It carries its own 3.3 V
+  regulator and pull-ups to it, so it takes 5 V on `VCC` and presents 3.3 V logic.
 - **2.2 kΩ pull-ups** on `SCL` and `SDA` to 3.3 V on the perfboard, behind a 2-pin jumper each so
   they can be removed. With 30-60 cm of cable the board's own 4.7-10 kΩ pull-ups give rise
   times outside the 400 kHz specification; the extra pull-ups in parallel bring them back.
@@ -310,7 +310,7 @@ in `seq`. A stalled host must not stall sampling.
 
 ### 4.5 IMU sampling
 
-The firmware identifies the chip itself: GY-87 boards normally carry an MPU-6050, but clones
+The firmware identifies the chip itself: GY-521 boards normally carry an MPU-6050, but clones
 ship with other parts. It runs
 `i2cscan`, then reads `WHO_AM_I`: MPU6050 returns 0x68, MPU6500 0x70, MPU9250 0x71, and an
 ADXL345 at address 0x53 returns `DEVID` 0xE5. A driver is written only for the family actually
@@ -324,7 +324,7 @@ on a timer of its own, because two free-running clocks drift and the result is d
 skipped samples. An `INT` that arrives while a read is still in flight is counted as
 `imu_overrun`.
 
-The board is a GY-87, which breaks out `INTA`, so the FIFO fallback once considered here for
+The board is a GY-521, which breaks out `INT`, so the FIFO fallback once considered here for
 boards without an `INT` pin is not built.
 
 **Default configuration for the MPU family:** clock source the gyro PLL (more accurate than
@@ -435,7 +435,7 @@ linear velocity), and compare against the same profile run MCU-side. The chosen 
 These need to be read off labels or measured. None of them blocks stage A except the trial
 board's hole count, which the placement drawing needs.
 
-- The IMU chip on the GY-87. Firmware test A1 settles it.
+- The IMU chip on the GY-521. Firmware test A1 settles it.
 - The 6 × 9 cm trial board's hole count, and the BlackPill's row spacing. Measure both.
 - The 10 × 10 cm stage-B board, not yet bought.
 - NEMA17 model, rated phase current and holding torque.
@@ -452,7 +452,7 @@ board's hole count, which the placement drawing needs.
 - The framed binary protocol and the `serial` ros2_control branch (host plan Tasks 1-5).
 - Axes other than joint0.
 - Closed-loop control.
-- The IMU's magnetometer and barometer. The magnetometer is useless beside stepper motors in
-  any case.
+- A magnetometer or barometer. The GY-521 has neither, and a magnetometer is useless beside
+  stepper motors in any case.
 - Input shaping. It becomes a candidate follow-up if A6 shows a single dominant low-frequency
   platform mode that S-curve jerk timing cannot avoid.

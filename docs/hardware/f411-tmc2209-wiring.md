@@ -78,7 +78,7 @@ so they cannot share a timer's time base.
 | Endstop 4 | PB9 | input, pull-up, EXTI9 | |
 | DIAG 1-4 (StallGuard) | PA5, PA6, PA7, PB1 | input, polled | 3.3 V from driver VIO |
 | Heartbeat / fault LED | PC13 | GPIO out | |
-| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-87 on the platform, 400 kHz |
+| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-521 on the platform, 400 kHz |
 | IMU SDA | PB7 | I2C1_SDA (AF4), open-drain | |
 | IMU INT | PA2 | input, EXTI2, rising edge | data ready; the sample clock |
 | `VM` sense | PA3 | ADC1_IN3 | 100k/10k divider, stage B |

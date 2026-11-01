@@ -2,13 +2,13 @@
 
 #include <cstdint>
 
-// Register-level logic for the InvenSense MPU-6050 (GY-87) and the MPU-6500 family
+// Register-level logic for the InvenSense MPU-6050 (GY-521) and the MPU-6500 family
 // (MPU-6500, MPU-9250), kept free of I/O so it is testable on the host. The driver in
 // drivers/ performs the writes this module plans.
 namespace jb::mpu
 {
 
-constexpr uint8_t kAddrLow = 0x68;   // AD0 low, the GY-87 default
+constexpr uint8_t kAddrLow = 0x68;   // AD0 low, the GY-521 default
 constexpr uint8_t kAddrHigh = 0x69;  // AD0 high
 
 namespace reg

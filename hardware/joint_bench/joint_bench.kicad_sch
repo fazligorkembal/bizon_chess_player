@@ -1009,7 +1009,7 @@
       (effects
         (font
           (size 1.27 1.27))))
-    (property "Value" "WeAct BlackPill F411CEU6"
+    (property "Value" "WeAct BlackPill F401CEU6"
       (at 63.5 118.11 0)
       (effects
         (font
@@ -1433,7 +1433,7 @@
       (effects
         (font
           (size 1.27 1.27))))
-    (property "Value" "IMU GY-87"
+    (property "Value" "IMU GY-521"
       (at 177.8 48.26 0)
       (effects
         (font
@@ -2163,7 +2163,7 @@
         (size 1.27 1.27))
       (justify left bottom))
     (uuid "5fddc553-9310-5028-a654-0780e6aaec58"))
-  (text "GY-87 cable, 30-60 cm: J1 VCC to VCC_IN, GND to GND, SCL to SCL, SDA to SDA, INT to INTA."
+  (text "GY-521 cable, 30-60 cm: J1 VCC to VCC, GND to GND, SCL to SCL, SDA to SDA, INT to INT."
     (exclude_from_sim no)
     (at 20.32 180.34 0)
     (effects
@@ -2171,7 +2171,7 @@
         (size 1.27 1.27))
       (justify left bottom))
     (uuid "24e28da7-fa9b-5df5-b728-8d1a9cc28ae8"))
-  (text "Tie the GY-87's FSYNC pin to its GND at the module end. Twist SCL with GND, SDA with VCC."
+  (text "Leave the GY-521's XDA, XCL and AD0 unconnected. Twist SCL with GND, SDA with VCC."
     (exclude_from_sim no)
     (at 20.32 187.96 0)
     (effects
