@@ -2,19 +2,42 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and bring up the stage-A bench (BlackPill F411 and a GY-87 IMU on a 6 × 9 cm trial perfboard), with generated board drawings to solder from, firmware that streams timestamped 1 kHz IMU data over USB, and a host tool that records and analyses it against acceptance tests A1-A7.
+**Goal:** Build and bring up the stage-A bench (BlackPill F401 and a GY-87 IMU on a 6 × 9 cm trial perfboard), with generated board drawings to solder from, firmware that streams timestamped 1 kHz IMU data over USB, and a host tool that records and analyses it against acceptance tests A1-A7.
 
 **Architecture:** Three independent parts meet at two contracts. The board is described once in `hardware/joint_bench/nets.yaml`; `tools/kicad_gen` generates the KiCad schematic, a hole-grid placement board and a soldering checklist from it, and verifies the schematic's exported netlist against it. The firmware is a CubeMX project whose generated C calls four functions in `app/app.h`; all logic that can run on a host lives in `lib/` and is unit-tested with GoogleTest, while `drivers/` wraps HAL. The host tool `tools/joint_bench` speaks the firmware's line protocol (spec §4.4), records to `debug/bench/`, and analyses recordings with pure functions tested on synthetic signals.
 
-**Tech Stack:** Python 3.10+ (numpy, scipy, matplotlib, PyYAML, pyserial, pytest); KiCad 10.0.6 `kicad-cli` in Docker; STM32CubeMX with CMake output, STM32 HAL + USB Device CDC; C++17 on `arm-none-eabi-gcc` 10.3; GoogleTest 1.11; Docker.
+**Tech Stack:** Python 3.10+ (numpy, scipy, matplotlib, PyYAML, pyserial, pytest); KiCad 10.0.6 `kicad-cli` in Docker; STM32CubeIDE 1.18.1 with its built-in CubeMX editor, STM32 HAL + USB Device CDC; C++17 on `arm-none-eabi-gcc` 10.3; GoogleTest 1.11; Docker.
 
 **Spec:** `docs/superpowers/specs/2026-10-16-joint0-bench-design.md`. Read it before any task.
+
+## Correction 2026-11-01: the chip is an STM32F401CEU6, built in CubeIDE
+
+An SWD read on 2026-11-01 returned device ID 0x433, and the chip's marking reads STM32F401CEU6,
+not the F411 this plan was written for. These points override any older text below; the code
+blocks of finished tasks are left as the record of what was committed.
+
+- **Clock:** 84 MHz, the F401's maximum. HSE 25 MHz, PLL M = 25, N = 336, P = 4, Q = 7, 2 flash
+  wait states. The 25 MHz crystal is assumed and not yet measured: USB enumeration on a build
+  clocked from HSE is the check. The firmware found on the board clocks from HSI, so its working
+  USB proves nothing about the crystal.
+- **Memory:** 96 KB RAM instead of 128 KB; 512 KB flash, unchanged.
+- **Pins:** unchanged. Every alternate function in the allocation exists on the F401 with the same
+  AF number, compared against CubeIDE's `STM32F401C(D-E)Ux.xml` and
+  `GPIO-STM32F401_gpio_v1_0_Modes.xml`. The F401 lacks only SPI4/5, I2S and SDIO, none of them used.
+- **Toolchain:** the user creates, builds and flashes the project in STM32CubeIDE 1.18.1, which still
+  has the built-in `.ioc` editor (2.x dropped it). There is no generated CMake project, so
+  `scripts/fwbuild` remains only for `--test`, the host tests of `lib/`.
+- **Project location, open:** the user created the CubeIDE project as `codes_stm32/` at the
+  repository root, while Task 10 and the host tests expect `firmware/joint_bench/` beside `lib/`.
+  Settle this before Task 10 Step 2: move the project, or link `lib/` into it and adjust the paths.
+- **Generated KiCad files** still say F411 in the part label. The label is cosmetic; regenerate
+  once `scripts/kicad-cli` can run here.
 
 ## Global Constraints
 
 - Scope is stage A only: BlackPill, GY-87 IMU, logic-analyzer header, MARK line. No TMC2209, motor, 24 V, endstop or `VM` sense circuitry is built, drawn or coded here.
 - Pins (spec §3.1): IMU SCL **PB6**, SDA **PB7** (I2C1, AF4, Fast Mode 400 kHz); IMU INT **PA2** (EXTI2, rising edge); MARK **PA4** (output, starts low); LED **PC13** (active low). PA13/PA14 are never allocated.
-- Clock (spec §4.2): HSE 25 MHz; PLL M = 25, N = 192, P = 2, Q = 4; SYSCLK 96 MHz; USB 48 MHz; AHB 96 MHz; APB1 48 MHz; APB2 96 MHz; flash latency 3 wait states.
+- Clock (spec §4.2): HSE 25 MHz; PLL M = 25, N = 336, P = 4, Q = 7; SYSCLK 84 MHz; USB 48 MHz; AHB 84 MHz; APB1 42 MHz; APB2 84 MHz; flash latency 2 wait states.
 - NVIC order, highest first: step timers (reserved, stage B); EXTI2, I2C1 event/error and I2C1 RX DMA; TIM4 tick (stage B); USB OTG FS; SysTick.
 - Firmware language: C++17 for `app/`, `drivers/`, `lib/`, with `-fno-exceptions -fno-rtti`, no heap after init. Generated CubeMX code stays C and is edited only inside `USER CODE` blocks.
 - `lib/` never includes HAL or CMSIS headers.
@@ -24,7 +47,7 @@
 - Every data-ready edge consumes one `seq`, whether or not its sample survives.
 - Host tools: Python ≥ 3.10, dependencies from `tools/requirements.txt` only, no ROS. Recordings go to `debug/bench/<YYYYmmdd_HHMMSS>_<label>/`.
 - KiCad files in `hardware/joint_bench/` other than `nets.yaml`, `trial_*.yaml` and `README.md` are generated and never edited by hand. `kicad-cli` runs only through `scripts/kicad-cli` (image `kicad/kicad@sha256:e36e29b5f4a638a1a7238eba3d2fcbc8e061ffed1e99a8f39cb722706c94a58e`).
-- Firmware builds and host-side firmware tests run only through `scripts/fwbuild` (image built from `docker/dockerfile-firmware`).
+- Target builds and flashing run in STM32CubeIDE 1.18.1. Host-side firmware tests run only through `scripts/fwbuild --test` (image built from `docker/dockerfile-firmware`).
 - Python code passes `flake8 --max-line-length 99`, the repository's limit.
 - Do not touch `ros_env/`.
 - Comments explain *why*, as in the rest of the repository. Conventional commits with a scope, ending with the `Co-Authored-By` line from the session's attribution reminder.
@@ -73,8 +96,8 @@ firmware/joint_bench/
   lib/CMakeLists.txt                         NEW  host build of lib/ + GoogleTest
   lib/include/jb/*.hpp, lib/src/*.cpp        NEW  pure logic
   lib/tests/test_*.cpp                       NEW
-  joint_bench.ioc + CubeMX output            NEW  [HUMAN] generated in Task 10
-  CMakeLists.txt                             MOD  (CubeMX-generated) C++ and our sources
+  joint_bench.ioc + CubeIDE output           NEW  [HUMAN] generated in Task 10
+  .project, .cproject                        NEW  (CubeIDE-generated) C++ and our sources
   app/app.h, app/app.cpp                     NEW  the seam CubeMX code calls
   drivers/clock.*, drivers/usb_port.*, drivers/imu.*   NEW  HAL wrappers
 
@@ -2135,7 +2158,7 @@ namespace jb
 {
 
 // Extends the 32-bit DWT cycle counter to 64 bits and converts cycles to microseconds.
-// At 96 MHz the raw counter wraps every 44.7 s, far shorter than a recording, so every
+// At 84 MHz the raw counter wraps every 51.1 s, far shorter than a recording, so every
 // timestamp goes through here. The extension is correct only if extend() sees the counter
 // at least once per wrap; the main loop calls it every iteration, which guarantees that.
 //
@@ -2144,7 +2167,7 @@ namespace jb
 class CycleClock
 {
 public:
-  // hz must be a whole number of MHz (96 MHz here); to_us() divides by hz / 1e6.
+  // hz must be a whole number of MHz (84 MHz here); to_us() divides by hz / 1e6.
   explicit constexpr CycleClock(uint32_t hz)
   : cycles_per_us_(hz / 1000000u) {}
 
@@ -4478,7 +4501,7 @@ git commit -m "feat(tools): analyse bench recordings for sample integrity, noise
 - Create **[HUMAN]**: `firmware/joint_bench/joint_bench.ioc` and everything CubeMX generates beside it.
 - Create: `firmware/joint_bench/app/app.h`, `firmware/joint_bench/app/app.cpp` (placeholder)
 - Modify (generated files, inside `USER CODE` blocks only): `firmware/joint_bench/Core/Src/main.c`, `firmware/joint_bench/USB_DEVICE/App/usbd_cdc_if.c`
-- Modify: `firmware/joint_bench/CMakeLists.txt` (generated once by CubeMX and not regenerated)
+- Modify: `firmware/joint_bench/.cproject` (through CubeIDE's project properties dialogs)
 
 **Interfaces:**
 - Consumes: `lib/` (Tasks 4-7), compiled into the target from here on.
@@ -4488,32 +4511,32 @@ git commit -m "feat(tools): analyse bench recordings for sample integrity, noise
   - `app/app.h`: `void app_init(void); void app_loop(void); void app_usb_rx(const uint8_t*, uint32_t); void app_usb_tx_done(void);` with C linkage.
   - The target build: every `.cpp` in `app/`, `drivers/` and `lib/src/` is compiled in, by glob, so Task 11 adds files without touching CMake.
 
-- [ ] **Step 1: [HUMAN] Generate the project in STM32CubeMX**
+- [ ] **Step 1: [HUMAN] Generate the project in STM32CubeIDE**
 
-Stop and ask the user to do this on the machine with CubeMX, then commit the result (or push it so the agent can pull it). Every setting comes from the design doc §4.2.
+Stop and ask the user to do this in STM32CubeIDE 1.18.1, then commit the result. Every setting comes from the design doc §4.2.
 
-1. **New project** → MCU selector → `STM32F411CEUx`.
+1. **File → New → STM32 Project** → MCU selector → `STM32F401CEUx`. Project name `joint_bench`; untick *Use default location* and set the location to the repository's `firmware/` folder, so the `.ioc` lands at `firmware/joint_bench/joint_bench.ioc`, beside the existing `lib/`; Targeted Language *C++*; Binary *Executable*; Project Type *STM32Cube*. The wizard's handling of the existing folder is untested: if it refuses, or nests the project differently, stop and report it.
 2. **System Core → RCC:** High Speed Clock (HSE) = *Crystal/Ceramic Resonator*. Low Speed Clock (LSE) = *Disable*.
 3. **System Core → SYS:** Debug = *Serial Wire*. Timebase Source = *SysTick*.
 4. **Connectivity → I2C1:** mode *I2C*. Make sure the pins are **PB6 = I2C1_SCL, PB7 = I2C1_SDA** (click the pin in the chip view to reassign if CubeMX picked PB8/PB9). Parameter Settings: I2C Speed Mode = *Fast Mode*, Clock Speed = *400000*. DMA Settings: *Add* `I2C1_RX`, priority *High*, mode *Normal*. NVIC Settings: tick *I2C1 event interrupt* and *I2C1 error interrupt*.
-5. **Connectivity → USB_OTG_FS:** Mode = *Device_Only*.
+5. **Connectivity → USB_OTG_FS:** Mode = *Device_Only*. Leave *Activate_VBUS* disabled: it would take PA9, the stage-B TMC UART pin.
 6. **Middleware → USB_DEVICE:** Class for FS IP = *Communication Device Class (Virtual Port Com)*. Leave VID 1155 (0x0483) and PID 22336 (0x5740): the host tool finds the board by that pair.
 7. **GPIO, in the chip view:**
    - PA2 → *GPIO_EXTI2*; in System Core → GPIO: mode *External Interrupt Mode with Rising edge trigger detection*, no pull, User Label `IMU_INT`.
    - PA4 → *GPIO_Output*; output level *Low*, User Label `MARK`.
    - PC13 → *GPIO_Output*; output level *High* (LED off), User Label `LED`.
 8. **System Core → NVIC:** enable *EXTI line2 interrupt*. Priority group *4 bits*. Preemption priorities: EXTI line2 = 2, I2C1 event = 2, I2C1 error = 2, DMA1 stream (I2C1_RX) = 2, USB On The Go FS global = 4, System tick timer = 15. Priorities 0-1 stay free for stage B's step timers.
-9. **Clock Configuration:** input frequency 25 MHz; PLL Source Mux = *HSE*; /M = 25, ×N = 192, /P = 2, /Q = 4; System Clock Mux = *PLLCLK*; AHB /1, APB1 /2, APB2 /1. Check that HCLK reads 96 MHz and the 48 MHz clock reads 48 MHz, with no red fields.
-10. **Project Manager → Project:** name `joint_bench`, location the repository's `firmware/` folder (so the `.ioc` lands at `firmware/joint_bench/joint_bench.ioc`, beside the existing `lib/`), Toolchain/IDE = *CMake*. Use the newest STM32Cube FW_F4 package offered; the `.ioc` records its version.
+9. **Clock Configuration:** input frequency 25 MHz; PLL Source Mux = *HSE*; /M = 25, ×N = 336, /P = 4, /Q = 7; System Clock Mux = *PLLCLK*; AHB /1, APB1 /2, APB2 /1. Check that HCLK reads 84 MHz and the 48 MHz clock reads 48 MHz, with no red fields, and that RCC's flash latency reads 2 WS.
+10. **Project Manager → Project:** Toolchain/IDE stays *STM32CubeIDE*. Use the installed STM32Cube FW_F4 package; the `.ioc` records its version.
 11. **Project Manager → Code Generator:** *Copy only the necessary library files*; tick *Generate peripheral initialization as a pair of '.c/.h' files per peripheral*; tick *Keep User Code when re-generating*.
 12. **Generate Code.** Commit:
 
 ```bash
 git add firmware/joint_bench
-git commit -m "build(firmware): generate the joint_bench STM32CubeMX project"
+git commit -m "build(firmware): generate the joint_bench STM32CubeIDE project"
 ```
 
-Before continuing, confirm these files exist: `firmware/joint_bench/CMakeLists.txt`, `CMakePresets.json`, `cmake/gcc-arm-none-eabi.cmake`, `Core/Src/main.c`, `Core/Inc/main.h`, `Core/Inc/i2c.h`, `USB_DEVICE/App/usbd_cdc_if.c`. If CubeMX laid them out differently, adjust the paths in the steps below to match; the edits themselves do not change.
+Before continuing, confirm these files exist in `firmware/joint_bench/`: `.project`, `.cproject`, `joint_bench.ioc`, `Core/Src/main.c`, `Core/Inc/main.h`, `Core/Inc/i2c.h`, `USB_DEVICE/App/usbd_cdc_if.c`. If CubeIDE laid them out differently, adjust the paths in the steps below to match; the edits themselves do not change.
 
 - [ ] **Step 2: Write the seam header and the placeholder application**
 
@@ -4637,72 +4660,21 @@ In `CDC_TransmitCplt_FS`:
 
 Keep whatever else CubeMX put in each block; only the `app_*` lines and the include are new.
 
-- [ ] **Step 4: Build the C++ sources into the target**
+- [ ] **Step 4: [HUMAN] Add the C++ sources to the CubeIDE project**
 
-In `firmware/joint_bench/CMakeLists.txt` (CubeMX writes this file once and leaves it alone afterwards):
+In *Project → Properties*, with configuration *[All configurations]* selected:
 
-Replace `enable_language(C ASM)` with:
+1. **C/C++ General → Paths and Symbols → Source Location:** add the folders `app` and `lib/src`. Add `drivers` in Task 11, once it exists. Do not add `lib` itself: `lib/tests` needs GoogleTest and must stay out of the target.
+2. **C/C++ General → Paths and Symbols → Includes,** for both *GNU C* and *GNU C++*: add `app` and `lib/include`, with *Is a workspace path* ticked; `drivers` follows in Task 11.
+3. **C/C++ Build → Settings → MCU G++ Compiler → General:** Language standard *ISO C++17*.
+4. **C/C++ Build → Settings → MCU G++ Compiler → Optimization:** tick the options for `-fno-exceptions`, `-fno-rtti` and `-fno-threadsafe-statics`. Any that has no tick box goes under *Miscellaneous*.
 
-```cmake
-enable_language(C CXX ASM)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-```
+`JB_VERSION` is not defined by this build, so `ver` reports `unknown` through the fallback in `app.cpp`. A stale or missing string says "older than you think", never something false.
 
-Replace the `target_sources(${CMAKE_PROJECT_NAME} PRIVATE` block (the one with `# Add user sources here`) with:
+- [ ] **Step 5: [HUMAN] Build in CubeIDE**
 
-```cmake
-# Bench code, globbed: adding a module is adding its files. app/ is the seam the generated
-# code calls; drivers/ wraps HAL; lib/ is the host-tested logic.
-file(GLOB JB_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/app/*.cpp
-    ${CMAKE_SOURCE_DIR}/drivers/*.cpp
-    ${CMAKE_SOURCE_DIR}/lib/src/*.cpp
-)
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
-    ${JB_SOURCES}
-)
-```
-
-Replace the `target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE` block (with `# Add user defined include paths`) with:
-
-```cmake
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
-    ${CMAKE_SOURCE_DIR}/app
-    ${CMAKE_SOURCE_DIR}/drivers
-    ${CMAKE_SOURCE_DIR}/lib/include
-)
-```
-
-Replace the `target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE` block (with `# Add user defined symbols`) with:
-
-```cmake
-# `ver` reports this. It is read at configure time, so reconfigure after committing to
-# refresh it; a stale string says "older than you think", never something false.
-execute_process(COMMAND git describe --always --dirty
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE JB_GIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(NOT JB_GIT)
-    set(JB_GIT unknown)
-endif()
-target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
-    JB_VERSION="${JB_GIT}"
-)
-```
-
-Then check the C++ flags: `grep -n CMAKE_CXX_FLAGS firmware/joint_bench/cmake/gcc-arm-none-eabi.cmake` must show `-fno-rtti -fno-exceptions -fno-threadsafe-statics`. If it does not, add after the `CMAKE_C_FLAGS` lines:
-
-```cmake
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fno-rtti -fno-exceptions -fno-threadsafe-statics")
-```
-
-- [ ] **Step 5: Build in Docker**
-
-Run: `scripts/fwbuild`
-Expected: `BUILD OK in <s>s — <n> warnings`. Warnings from CubeMX's generated code or HAL are not ours to fix, but none may come from our directories: `grep -E '/(app|drivers|lib)/.*warning' "$(scripts/fwbuild --log)"` must print nothing. `JB_VERSION` is `unknown` in this build because the container has no git; the bench machine's own build has git and gets the real string.
+Build with *Project → Build Project*.
+Expected: `Build Finished. 0 errors`. Warnings from CubeMX's generated code or HAL are not ours to fix, but none may come from `app/`, `drivers/` or `lib/`.
 
 - [ ] **Step 6: [HUMAN] Flash and check the seam**
 
@@ -4763,7 +4735,7 @@ namespace jb
 {
 namespace
 {
-CycleClock g_clock(96000000);  // SYSCLK; see the clock tree in the design doc, section 4.2
+CycleClock g_clock(84000000);  // SYSCLK; see the clock tree in the design doc, section 4.2
 }
 
 void clock_init()
@@ -5441,10 +5413,10 @@ extern "C" void app_usb_tx_done(void)
 }
 ```
 
-- [ ] **Step 5: Build in Docker**
+- [ ] **Step 5: [HUMAN] Build**
 
-Run: `scripts/fwbuild && grep -E '/(app|drivers|lib)/.*warning' "$(scripts/fwbuild --log)"; scripts/fwbuild --test`
-Expected: `BUILD OK`, no output from the `grep` (no warnings in our code), then `TESTS PASSED ... out of 32`.
+Build in CubeIDE, with `drivers` added to the source and include paths as Task 10 Step 4 says, then run `scripts/fwbuild --test`.
+Expected: `Build Finished. 0 errors`, no warnings from `app/`, `drivers/` or `lib/`, then `TESTS PASSED ... out of 32`.
 
 - [ ] **Step 6: Commit**
 

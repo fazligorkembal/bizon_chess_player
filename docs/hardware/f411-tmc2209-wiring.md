@@ -1,4 +1,4 @@
-# Wiring and Pinout — BlackPill F411 + TMC2209 + Optical Endstops
+# Wiring and Pinout — BlackPill F401 + TMC2209 + Optical Endstops
 
 **Date:** 2026-09-04
 **Status:** Proposed. Nothing here has been built or measured yet.
@@ -10,12 +10,14 @@ hardware/software boundary this pinout serves) and
 `docs/superpowers/plans/2026-08-21-hardware-bringup.md` (Tasks 1-5 are the host-side work that
 consumes it).
 
-The board assumed is a WeAct BlackPill, STM32F411CEU6 in UFQFPN48. That package has PORTA 0-15,
+The board is a BlackPill with an STM32F401CEU6 in UFQFPN48: SWD reads device ID 0x433 and the
+chip's marking confirms it (2026-11-01). This file's name predates that finding. That package has PORTA 0-15,
 PORTB 0-15, PC13/14/15 and PH0/PH1 — **no PORTC 0-12**, which is why USART6 is unusable here
 (its only pins on this package are PA11/PA12, taken by USB).
 
 The alternate functions below were checked against ST's open pin data
-(`STM32_open_pin_data`, F411 UFQFPN48) on 2026-10-16. Still check your own board's
+(`STM32_open_pin_data`, F411 UFQFPN48) on 2026-10-16 and compared again for the F401 on
+2026-11-01 against CubeIDE's `STM32F401C(D-E)Ux.xml`: same signals, same AF numbers. Still check your own board's
 schematic before soldering: board revisions differ in what they tie to PA0, PA9 and PB2.
 
 ## Read this before every power-on
@@ -49,6 +51,8 @@ The four ways to destroy a TMC2209, in the order people actually manage it:
 **5 V tolerance:** the ADC-capable pins (PA0-PA7, PB0, PB1) are `TTa` — **3.3 V only**. Every
 other GPIO here is `FT`. All endstop inputs below sit on `FT` pins so a 5 V-powered sensor
 module cannot destroy them, but powering the sensors from 3.3 V is still the better answer.
+This list was written for the F411 and has not been checked against the F401 datasheet. Until it
+is, treat every pin as 3.3 V only.
 
 ## Full allocation — four steppers, one servo gripper, the bench IMU
 

@@ -6,7 +6,7 @@ namespace jb
 {
 
 // Extends the 32-bit DWT cycle counter to 64 bits and converts cycles to microseconds.
-// At 96 MHz the raw counter wraps every 44.7 s, far shorter than a recording, so every
+// At 84 MHz the raw counter wraps every 51.1 s, far shorter than a recording, so every
 // timestamp goes through here. The extension is correct only if extend() sees the counter
 // at least once per wrap; the main loop calls it every iteration, which guarantees that.
 //
@@ -15,7 +15,7 @@ namespace jb
 class CycleClock
 {
 public:
-  // hz must be a whole number of MHz (96 MHz here); to_us() divides by hz / 1e6.
+  // hz must be a whole number of MHz (84 MHz here); to_us() divides by hz / 1e6.
   explicit constexpr CycleClock(uint32_t hz)
   : cycles_per_us_(hz / 1000000u) {}
 

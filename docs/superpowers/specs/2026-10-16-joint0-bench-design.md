@@ -37,7 +37,7 @@ path, so that the numbers it produces mean the same thing when MoveIt is driving
 | Vibration sensor | The "10DOF" IMU, accelerometer only, on the wooden platform beside the chessboard | Robot base, board and IMU share one platform, so the IMU sees exactly the vibration that walks pieces. Magnetometer and barometer are unused. |
 | Where the profile lives | Two stages: MCU-generated first, then replayed as 100 Hz setpoints | Separates the arm's physical limit from the artifacts of the 100 Hz path. The MCU needs a profile generator anyway, for homing and as the velocity/acceleration clamp. |
 | Supply | 24 V | Given. More torque at speed than 12 V; regenerative rise during deceleration is measured, not assumed away. |
-| Firmware base | STM32CubeMX project, CMake toolchain, HAL + LL | CubeMX is available on the development machine. |
+| Firmware base | STM32CubeIDE project, HAL + LL | CubeIDE 1.18.1, with its built-in CubeMX editor, is on the development machine. |
 | Debug | ST-Link over SWD | Available. DFU over USB is the fallback only. |
 | Instruments | Multimeter and digital logic analyzer | Available. No oscilloscope is assumed. |
 
@@ -110,6 +110,11 @@ allocation carries an I2C function: I2C1's only clean pair is PB6/PB7, and PB6 i
 SPI was considered for the IMU and rejected: every SPI instance on this package collides with
 the existing STEP, DIR, DIAG or endstop pins, and I2C at 400 kHz carries 1 kHz accelerometer
 data with room to spare.
+
+**Chip correction, 2026-11-01.** The board's chip is an STM32F401CEU6 (SWD device ID 0x433, chip
+marking confirmed), not the F411 this section was checked against. The allocation was compared
+again against CubeIDE 1.18.1's `STM32F401C(D-E)Ux.xml` and `GPIO-STM32F401_gpio_v1_0_Modes.xml`:
+same signals, same AF numbers, no pin moves. The F401 lacks only SPI4/5, I2S and SDIO.
 
 | Function | Pin | Mode | Stage |
 |---|---|---|---|
@@ -214,7 +219,7 @@ and never edited by hand. KiCad is not installed on the host: `scripts/kicad-cli
 The firmware lives in `firmware/joint_bench/`. It is not a ROS package and is not part of the
 colcon workspace.
 
-- **`joint_bench.ioc`** is the STM32CubeMX project, with Toolchain/IDE set to **CMake** and
+- **`joint_bench.ioc`** is the STM32CubeIDE project, with Toolchain/IDE set to **STM32CubeIDE** and
   "Generate peripheral initialization as a pair of .c/.h files" enabled. It is committed along
   with the generated code, so the project builds on a machine without CubeMX. The `.ioc`
   records the CubeMX version and the `STM32Cube FW_F4` package version; those are the pins for
@@ -227,16 +232,15 @@ colcon workspace.
 - **Flash and debug:** ST-Link over SWD, using OpenOCD or STM32CubeProgrammer/CubeIDE. DFU is
   the fallback only.
 - **Verification on this machine:** a pinned `docker/dockerfile-firmware` (Ubuntu 22.04, a fixed
-  Arm GNU Toolchain release, CMake, Ninja, a pinned GoogleTest) compiles the target to catch
-  build breaks and runs the `lib/` unit tests on the host. Flashing and running on hardware
-  happen on the development machine.
+  Arm GNU Toolchain release, CMake, Ninja, a pinned GoogleTest) runs the `lib/` unit tests on the
+  host. Target builds, flashing and running on hardware happen in CubeIDE.
 
 ### 4.2 CubeMX configuration (stage A)
 
-**Clock.** HSE 25 MHz crystal → PLL with M = 25, N = 192, P = 2, Q = 4. That gives SYSCLK
-96 MHz and exactly 48 MHz for USB. 100 MHz is not usable: no PLL setting reaches both 100 MHz
-SYSCLK and 48 MHz USB from a 25 MHz crystal. AHB = 96 MHz, APB1 = 48 MHz (APB1 timers 96 MHz),
-APB2 = 96 MHz. Flash latency 3 wait states.
+**Clock.** HSE 25 MHz crystal → PLL with M = 25, N = 336, P = 4, Q = 7. That gives SYSCLK
+84 MHz, the F401's maximum, and exactly 48 MHz for USB. AHB = 84 MHz, APB1 = 42 MHz (APB1 timers
+84 MHz), APB2 = 84 MHz. Flash latency 2 wait states. The crystal's value is assumed until USB
+enumerates on a build clocked from HSE.
 
 **Peripherals:**
 

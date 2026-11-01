@@ -48,9 +48,8 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 1. ST-Link to the BlackPill's SWD header: SWDIO, SWCLK and GND only. Leave the ST-Link's
    3.3 V pin unconnected: the BlackPill is already powered from USB, and two 3.3 V supplies
    would fight each other.
-2. Build on the development machine from `firmware/joint_bench` (CubeIDE, or
-   `cmake --preset Debug && cmake --build build/Debug`) and flash `joint_bench.elf` with
-   STM32CubeProgrammer or OpenOCD.
+2. Build the project in STM32CubeIDE 1.18.1 and flash it with *Run As → STM32 C/C++
+   Application*.
 3. The LED blinks fast (no IMU yet). The PC sees a USB serial port (VID:PID 0483:5740).
 
 ## 6. Connect the IMU
