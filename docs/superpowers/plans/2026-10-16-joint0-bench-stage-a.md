@@ -28,6 +28,11 @@ blocks of finished tasks are left as the record of what was committed.
   `scripts/fwbuild` remains only for `--test`, the host tests of `lib/`.
 - **Project location:** the CubeIDE project is `codes_stm32/` at the repository root, and `lib/`
   moved into it.
+- **I2C bus recovery:** added after Task 11, see the design doc, section 4.5. PB6 and PB7 have
+  their internal pull-ups on, and `drivers/imu.cpp` has `bus_clear()`, so its listing in Task 11
+  is older than the file.
+- **Direction analysis and test A8:** added after Task 12, see the design doc, sections 5 and 6,
+  and the runbook. `tools/joint_bench` is newer than its listings in Tasks 8 and 9.
 
 ## Global Constraints
 
@@ -3386,7 +3391,7 @@ const char * plan_config(Chip chip, const Config & want, Plan * out)
     add(reg::kConfig, g.code);
     accel_hz = a.hz;
   }
-  add(reg::kGyroConfig, 1u << 3);  // +-500 dps; streamed, but no metric uses it
+  add(reg::kGyroConfig, 1u << 3);  // +-500 dps; GYRO_LSB_PER_DPS in the host tool follows this
   add(reg::kAccelConfig, fs_bits);
   if (chip == Chip::Mpu6500) {
     add(reg::kAccelConfig2, nearest(kMpu6500Accel, want.dlpf_hz).code);
@@ -4514,7 +4519,7 @@ Stop and ask the user to do this in STM32CubeIDE 1.18.1, then commit the result.
 1. **File → New → STM32 Project** → MCU selector → `STM32F401CEUx`. Project name `codes_stm32`; untick *Use default location* and set the location to the repository root, so the `.ioc` lands at `codes_stm32/codes_stm32.ioc`; Targeted Language *C++*; Binary *Executable*; Project Type *STM32Cube*.
 2. **System Core → RCC:** High Speed Clock (HSE) = *Crystal/Ceramic Resonator*. Low Speed Clock (LSE) = *Disable*.
 3. **System Core → SYS:** Debug = *Serial Wire*. Timebase Source = *SysTick*.
-4. **Connectivity → I2C1:** mode *I2C*. Make sure the pins are **PB6 = I2C1_SCL, PB7 = I2C1_SDA** (click the pin in the chip view to reassign if CubeMX picked PB8/PB9). Parameter Settings: I2C Speed Mode = *Fast Mode*, Clock Speed = *400000*. DMA Settings: *Add* `I2C1_RX`, priority *High*, mode *Normal*. NVIC Settings: tick *I2C1 event interrupt* and *I2C1 error interrupt*.
+4. **Connectivity → I2C1:** mode *I2C*. Make sure the pins are **PB6 = I2C1_SCL, PB7 = I2C1_SDA** (click the pin in the chip view to reassign if CubeMX picked PB8/PB9). GPIO Settings: GPIO Pull-up/Pull-down = *Pull-up* on both. Parameter Settings: I2C Speed Mode = *Fast Mode*, Clock Speed = *400000*. DMA Settings: *Add* `I2C1_RX`, priority *High*, mode *Normal*. NVIC Settings: tick *I2C1 event interrupt* and *I2C1 error interrupt*.
 5. **Connectivity → USB_OTG_FS:** Mode = *Device_Only*. Leave *Activate_VBUS* disabled: it would take PA9, the stage-B TMC UART pin.
 6. **Middleware → USB_DEVICE:** Class for FS IP = *Communication Device Class (Virtual Port Com)*. Leave VID 1155 (0x0483) and PID 22336 (0x5740): the host tool finds the board by that pair.
 7. **GPIO, in the chip view:**
@@ -5510,7 +5515,8 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 1. Unplug USB. Wire the GY-521 cable: J1 VCC → VCC, GND → GND, SCL → SCL, SDA → SDA,
    INT → INT. Leave XDA, XCL and AD0 on the GY-521 unconnected.
 2. Twist SCL with GND and SDA with VCC; route the cable away from where the motor cable will
-   run. Put the GY-521 on the wooden platform beside the chessboard, flat, and fix it down
+   run. Put the GY-521 on the wooden platform beside the chessboard, flat, with its X arrow
+   along the files (a to h) and its Y arrow along the ranks (1 to 8), and fix it down
    (double-sided tape or a screw): a loose sensor measures its own rattle.
 3. Plug USB. The LED blinks slowly.
 

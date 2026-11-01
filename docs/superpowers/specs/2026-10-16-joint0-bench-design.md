@@ -34,7 +34,7 @@ path, so that the numbers it produces mean the same thing when MoveIt is driving
 | Axis | `bizon2rev1` alone, one TMC2209 | Incremental bring-up; the wiring guide's phase 1. |
 | Load | The complete arm, mounted | Settings found on a bare shaft are meaningless once the arm's inertia is attached. |
 | Position feedback | None; step count plus optical endstop | Given. No encoder exists on this machine. |
-| Vibration sensor | The GY-521 IMU (MPU-6050), accelerometer only, on the wooden platform beside the chessboard | Robot base, board and IMU share one platform, so the IMU sees exactly the vibration that walks pieces. The module has no magnetometer or barometer. |
+| Vibration sensor | The GY-521 IMU (MPU-6050) on the wooden platform beside the chessboard | Robot base, board and IMU share one platform, so the IMU sees exactly the vibration that walks pieces. The accelerometer drives every metric and the gyro only shows platform twist. The module has no magnetometer or barometer. |
 | Where the profile lives | Two stages: MCU-generated first, then replayed as 100 Hz setpoints | Separates the arm's physical limit from the artifacts of the 100 Hz path. The MCU needs a profile generator anyway, for homing and as the velocity/acceleration clamp. |
 | Supply | 24 V | Given. More torque at speed than 12 V; regenerative rise during deceleration is measured, not assumed away. |
 | Firmware base | STM32CubeIDE project, HAL + LL | CubeIDE 1.18.1, with its built-in CubeMX editor, is on the development machine. |
@@ -248,7 +248,7 @@ which confirms the 25 MHz crystal.
 |---|---|
 | SYS | Debug: Serial Wire. Timebase: SysTick. |
 | USB_OTG_FS | Device only. Middleware `USB_DEVICE`, class CDC. |
-| I2C1 | PB6/PB7, Fast Mode 400 kHz, DMA on RX. |
+| I2C1 | PB6/PB7, Fast Mode 400 kHz, DMA on RX, internal pull-ups on so the lines idle high with no module connected. |
 | GPIO | PA2 EXTI rising; PA4 output, low; PC13 output, high (LED off). |
 | DWT | Cycle counter enabled in code; it is not a CubeMX setting. |
 
@@ -327,11 +327,18 @@ skipped samples. An `INT` that arrives while a read is still in flight is counte
 The board is a GY-521, which breaks out `INT`, so the FIFO fallback once considered here for
 boards without an `INT` pin is not built.
 
+**Bus recovery.** An MCU reset in the middle of a read leaves the IMU holding SDA low, and lines
+that rise without a STOP condition leave the peripheral's BUSY flag set. Before every blocking
+use of the bus the firmware checks BUSY and, if it is set, runs the I2C specification's bus
+clear (up to nine SCL pulses, then a STOP) and re-initialises I2C1. If BUSY survives that, the
+command answers `ERR imu: bus busy`.
+
 **Default configuration for the MPU family:** clock source the gyro PLL (more accurate than
 the internal oscillator, which matters for test A3), 1 kHz output rate, accelerometer DLPF at
 about 188 Hz, full scale ±4 g. ±4 g leaves headroom for the tap test, where a pencil strike can exceed
 ±2 g. The accelerometer's noise density is far above its resolution, so ±4 g costs nothing.
-Gyro data is streamed because it rides in the same read, but no metric uses it.
+Gyro data rides in the same read. No §7 metric uses it; the direction analysis (A8) reads its
+vertical component as platform twist.
 
 ### 4.6 Stage B and later (boundary only)
 
@@ -358,7 +365,10 @@ runs on the host directly, with no ROS, from a virtualenv built from a pinned
   sha and the label. `debug/` is already gitignored.
 - **`analyze <dir>`** reports dropped samples, the sample-interval distribution, per-axis noise
   RMS, a Welch PSD, tap detection, and the dominant frequency and damping ratio of each tap.
-  It writes its plots as PNG files beside the data.
+  It also reports direction: tilt from the gravity vector, the main horizontal axis in degrees
+  from the sensor's X (covariance of the horizontal acceleration) with its anisotropy, twist
+  about the vertical from the gyro, and for each tap one of `x`, `y`, `diagonal`, `twist` or
+  `unclear`. It writes its plots as PNG files beside the data.
 - **`sweep <sweep.yaml>`** (stage C) runs a trial list, computes the §7 metrics for each trial,
   and writes `summary.csv` and a time-versus-vibration Pareto plot.
 
@@ -379,6 +389,7 @@ damped-oscillation decay must give back its damping ratio.
 | A5 | Noise floor, 60 s at rest | Horizontal RMS and PSD recorded. This is the baseline for `t_settle`. |
 | A6 | Tap test: 5 strikes at each of 3 points (beside the board, beside the robot base, a corner) | Platform natural frequencies and damping ratios recorded. These are the frequencies the motion profile must avoid exciting. |
 | A7 | `mark` ×5 with the analyzer on `MARK` and `IMU_INT` | For each mark, the interval from the MARK edge to the next INT edge on the analyzer matches the interval from the `E` line's `t_us` to the next `T` sample's `t_us` within 20 µs. This shows the firmware's timestamps sit where the hardware edges are. The five intervals are read off by hand with the analyzer's cursors. |
+| A8 | Direction: 3 strikes along X, 3 along Y, 3 twists about the vertical, one labelled recording each | Every event is classified as its own kind. The twist threshold in the analysis is provisional until this test. |
 
 ### Stage B
 

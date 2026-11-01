@@ -58,7 +58,8 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
 1. Unplug USB. Wire the GY-521 cable: J1 VCC → VCC, GND → GND, SCL → SCL, SDA → SDA,
    INT → INT. Leave XDA, XCL and AD0 on the GY-521 unconnected.
 2. Twist SCL with GND and SDA with VCC; route the cable away from where the motor cable will
-   run. Put the GY-521 on the wooden platform beside the chessboard, flat, and fix it down
+   run. Put the GY-521 on the wooden platform beside the chessboard, flat, with its X arrow
+   along the files (a to h) and its Y arrow along the ranks (1 to 8), and fix it down
    (double-sided tape or a screw): a loose sensor measures its own rattle.
 3. Plug USB. The LED blinks slowly.
 
@@ -124,6 +125,17 @@ For each of the five MARK edges, put cursors on it and on the next rising IMU_IN
 read the interval. Compare with the summary's `mark:a7-N: next sample X us later` lines.
 Pass: every pair agrees within 20 µs.
 
+**A8 — direction.** Three pencil strikes on the platform's edge along X, three along Y, then
+three sharp twists of the platform about the vertical by hand, about two seconds apart:
+
+    python3 -m joint_bench record -s 10 -l dir_x
+    python3 -m joint_bench record -s 10 -l dir_y
+    python3 -m joint_bench record -s 10 -l dir_twist
+
+Pass: every `tap at` line says `x`, `y` and `twist` in the matching recording. If twists and
+strikes do not separate, note each line's `twist` over `peak`: `TWIST_DPS_PER_G` in
+`tools/joint_bench/joint_bench/analysis.py` is provisional and belongs between the two groups.
+
 ## 10. Robustness checks
 
 These pin down failures the unit tests cannot reach.
@@ -165,6 +177,7 @@ These pin down failures the unit tests cannot reach.
 | A5 | | | |
 | A6 | | | |
 | A7 | | | |
+| A8 | | | |
 | R1 no IMU at power-up | | | |
 | R2 host stops reading | | | |
 | R3 USB drops out | | | |
