@@ -10,6 +10,8 @@ namespace jb
 namespace
 {
 constexpr uint32_t kTimeoutMs = 10;
+constexpr uint16_t kScl = GPIO_PIN_6;  // PB6 and PB7, as plain GPIOs only inside bus_clear()
+constexpr uint16_t kSda = GPIO_PIN_7;
 
 mpu::Chip g_chip = mpu::Chip::Unknown;
 uint8_t g_who = 0;
@@ -36,6 +38,67 @@ bool wait_idle()
     }
   }
   return true;
+}
+
+void wait_half_bit()
+{
+  // About 100 kHz. Slow on purpose: the module may sit at the end of a 60 cm cable.
+  const uint64_t start = now_us();
+  while (now_us() - start < 5) {
+  }
+}
+
+// The I2C specification's "bus clear". Two things leave the peripheral's BUSY flag set, and
+// neither clears by itself: an MCU reset in the middle of a read, after which the IMU holds
+// SDA low waiting for clocks that never come, and the lines rising without a STOP condition,
+// as when the module is plugged in with power on. Every HAL call then times out, so a healthy
+// module looks absent until the power is cycled.
+void bus_clear()
+{
+  HAL_I2C_DeInit(&hi2c1);
+  GPIO_InitTypeDef pins{};
+  pins.Pin = kScl | kSda;
+  pins.Mode = GPIO_MODE_OUTPUT_OD;
+  pins.Pull = GPIO_PULLUP;
+  pins.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_WritePin(GPIOB, kScl | kSda, GPIO_PIN_SET);
+  HAL_GPIO_Init(GPIOB, &pins);
+  // Nine clocks walk a slave through whatever byte it was sending, until it lets go of SDA.
+  for (int i = 0; i < 9 && HAL_GPIO_ReadPin(GPIOB, kSda) == GPIO_PIN_RESET; ++i) {
+    HAL_GPIO_WritePin(GPIOB, kScl, GPIO_PIN_RESET);
+    wait_half_bit();
+    HAL_GPIO_WritePin(GPIOB, kScl, GPIO_PIN_SET);
+    wait_half_bit();
+  }
+  // A STOP then ends the transfer the slave still thinks is open.
+  HAL_GPIO_WritePin(GPIOB, kScl, GPIO_PIN_RESET);
+  wait_half_bit();
+  HAL_GPIO_WritePin(GPIOB, kSda, GPIO_PIN_RESET);
+  wait_half_bit();
+  HAL_GPIO_WritePin(GPIOB, kScl, GPIO_PIN_SET);
+  wait_half_bit();
+  HAL_GPIO_WritePin(GPIOB, kSda, GPIO_PIN_SET);
+  wait_half_bit();
+  HAL_GPIO_DeInit(GPIOB, kScl | kSda);
+  MX_I2C1_Init();
+}
+
+bool bus_stuck()
+{
+  return __HAL_I2C_GET_FLAG(&hi2c1, I2C_FLAG_BUSY) != RESET;
+}
+
+// Every blocking use of the bus starts here. False means it could not be made usable, for
+// example a line shorted to GND or an unpowered module dragging it down.
+bool bus_ready()
+{
+  if (!wait_idle()) {
+    return false;
+  }
+  if (bus_stuck()) {
+    bus_clear();
+  }
+  return !bus_stuck();
 }
 
 HAL_StatusTypeDef write_reg(uint8_t reg, uint8_t value)
@@ -66,7 +129,7 @@ const char * apply(const mpu::Config & cfg)
 
 const char * imu_probe(const mpu::Config & cfg)
 {
-  if (!wait_idle()) {
+  if (!bus_ready()) {
     return "imu: bus busy";
   }
   g_chip = mpu::Chip::Unknown;
@@ -93,7 +156,7 @@ const char * imu_configure(const mpu::Config & cfg)
   if (g_chip == mpu::Chip::Unknown) {
     return "imu: not found";
   }
-  if (!wait_idle()) {
+  if (!bus_ready()) {
     return "imu: bus busy";
   }
   return apply(cfg);
@@ -127,7 +190,7 @@ ImuCounters imu_counters()
 
 int imu_scan(uint8_t * found, int max)
 {
-  if (!wait_idle()) {
+  if (!bus_ready()) {
     return 0;
   }
   int n = 0;
