@@ -27,7 +27,7 @@ blocks of finished tasks are left as the record of what was committed.
   has the built-in `.ioc` editor (2.x dropped it). There is no generated CMake project, so
   `scripts/fwbuild` remains only for `--test`, the host tests of `lib/`.
 - **Project location:** the CubeIDE project is `codes_stm32/` at the repository root, and `lib/`
-  moved into it. Read `firmware/joint_bench/` in the finished tasks below as `codes_stm32/`.
+  moved into it.
 - **Generated KiCad files** still say F411 in the part label. The label is cosmetic; regenerate
   once `scripts/kicad-cli` can run here.
 
@@ -90,11 +90,11 @@ hardware/joint_bench/
   joint_bench.kicad_sch/.kicad_sym/.kicad_pro, sym-lib-table      GENERATED
   trial_6x9.kicad_pcb, trial_6x9_checklist.md, exports/*.pdf|svg  GENERATED
 
-firmware/joint_bench/
+codes_stm32/
   lib/CMakeLists.txt                         NEW  host build of lib/ + GoogleTest
   lib/include/jb/*.hpp, lib/src/*.cpp        NEW  pure logic
   lib/tests/test_*.cpp                       NEW
-  joint_bench.ioc + CubeIDE output           NEW  [HUMAN] generated in Task 10
+  codes_stm32.ioc + CubeIDE output           NEW  [HUMAN] generated in Task 10
   .project, .cproject                        NEW  (CubeIDE-generated) C++ and our sources
   app/app.h, app/app.cpp                     NEW  the seam CubeMX code calls
   drivers/clock.*, drivers/usb_port.*, drivers/imu.*   NEW  HAL wrappers
@@ -1840,8 +1840,8 @@ git commit -m "feat(hardware): draw the 6x9 trial board and its soldering checkl
 ### Task 4: Firmware toolchain, the host test build, and the three queues
 
 **Files:**
-- Create: `docker/dockerfile-firmware`, `scripts/fwbuild`, `firmware/joint_bench/lib/CMakeLists.txt`, `firmware/joint_bench/lib/include/jb/cycle_clock.hpp`, `firmware/joint_bench/lib/include/jb/spsc_queue.hpp`, `firmware/joint_bench/lib/include/jb/line_ring.hpp`
-- Test: `firmware/joint_bench/lib/tests/test_cycle_clock.cpp`, `firmware/joint_bench/lib/tests/test_spsc_queue.cpp`, `firmware/joint_bench/lib/tests/test_line_ring.cpp`
+- Create: `docker/dockerfile-firmware`, `scripts/fwbuild`, `codes_stm32/lib/CMakeLists.txt`, `codes_stm32/lib/include/jb/cycle_clock.hpp`, `codes_stm32/lib/include/jb/spsc_queue.hpp`, `codes_stm32/lib/include/jb/line_ring.hpp`
+- Test: `codes_stm32/lib/tests/test_cycle_clock.cpp`, `codes_stm32/lib/tests/test_spsc_queue.cpp`, `codes_stm32/lib/tests/test_line_ring.cpp`
 
 **Interfaces:**
 - Consumes: nothing.
@@ -1856,7 +1856,7 @@ git commit -m "feat(hardware): draw the 6x9 trial board and its soldering checkl
 `docker/dockerfile-firmware`:
 
 ```dockerfile
-# Toolchain for firmware/joint_bench. It compile-checks the STM32 target and runs the
+# Toolchain for codes_stm32. It compile-checks the STM32 target and runs the
 # host-side unit tests of lib/; flashing and running on hardware happen on the bench
 # machine. Base image and packages are pinned so a rebuild months from now produces the
 # same compiler: an unpinned toolchain is how a working build breaks without a commit.
@@ -1896,7 +1896,7 @@ set -uo pipefail
 
 SELF="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REPO="${BIZON_REPO:-$(dirname "$SELF")}"
-FW="$REPO/firmware/joint_bench"
+FW="$REPO/codes_stm32"
 LOGDIR="${BIZON_LOGDIR:-$HOME/.cache/bizon-build}"
 LAST="$LOGDIR/fw-last.log"
 DOCKERFILE="$REPO/docker/dockerfile-firmware"
@@ -1922,7 +1922,7 @@ if [ "$MODE" = test ]; then
   INNER="cmake -S lib -B /tmp/host -G Ninja && cmake --build /tmp/host && ctest --test-dir /tmp/host --output-on-failure"
 else
   if [ ! -f "$FW/CMakePresets.json" ]; then
-    echo "no CubeMX project in $FW yet; generate it from joint_bench.ioc first" >&2
+    echo "no CubeMX project in $FW yet; generate it from codes_stm32.ioc first" >&2
     exit 1
   fi
   # A throwaway build directory, so a build here never fights with the bench machine's
@@ -1957,7 +1957,7 @@ Run: `chmod +x scripts/fwbuild`
 
 - [ ] **Step 3: Write the host test build**
 
-`firmware/joint_bench/lib/CMakeLists.txt`:
+`codes_stm32/lib/CMakeLists.txt`:
 
 ```cmake
 # Host build of lib/: the firmware's pure logic, compiled with the host compiler and tested
@@ -1987,7 +1987,7 @@ gtest_discover_tests(jb_tests)
 
 - [ ] **Step 4: Write the failing tests**
 
-`firmware/joint_bench/lib/tests/test_cycle_clock.cpp`:
+`codes_stm32/lib/tests/test_cycle_clock.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -2032,7 +2032,7 @@ TEST(CycleClock, ConvertsCyclesToMicrosecondsAt96MHz)
 }
 ```
 
-`firmware/joint_bench/lib/tests/test_spsc_queue.cpp`:
+`codes_stm32/lib/tests/test_spsc_queue.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -2078,7 +2078,7 @@ TEST(SpscQueue, SurvivesIndexWrapAround)
 }
 ```
 
-`firmware/joint_bench/lib/tests/test_line_ring.cpp`:
+`codes_stm32/lib/tests/test_line_ring.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -2145,7 +2145,7 @@ Expected: the first run builds the image (a few minutes), then `=== TEST FAILED`
 
 - [ ] **Step 6: Write the three headers**
 
-`firmware/joint_bench/lib/include/jb/cycle_clock.hpp`:
+`codes_stm32/lib/include/jb/cycle_clock.hpp`:
 
 ```cpp
 #pragma once
@@ -2189,7 +2189,7 @@ private:
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/include/jb/spsc_queue.hpp`:
+`codes_stm32/lib/include/jb/spsc_queue.hpp`:
 
 ```cpp
 #pragma once
@@ -2250,7 +2250,7 @@ private:
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/include/jb/line_ring.hpp`:
+`codes_stm32/lib/include/jb/line_ring.hpp`:
 
 ```cpp
 #pragma once
@@ -2320,7 +2320,7 @@ Expected: `TESTS PASSED ... out of 11`.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add docker/dockerfile-firmware scripts/fwbuild firmware/joint_bench/lib
+git add docker/dockerfile-firmware scripts/fwbuild codes_stm32/lib
 git commit -m "build(firmware): add the pinned firmware toolchain and the lib/ host test build"
 ```
 
@@ -2329,8 +2329,8 @@ git commit -m "build(firmware): add the pinned firmware toolchain and the lib/ h
 ### Task 5: Text formatting and telemetry lines
 
 **Files:**
-- Create: `firmware/joint_bench/lib/include/jb/text_writer.hpp`, `firmware/joint_bench/lib/src/text_writer.cpp`, `firmware/joint_bench/lib/include/jb/telemetry.hpp`, `firmware/joint_bench/lib/src/telemetry.cpp`
-- Test: `firmware/joint_bench/lib/tests/test_telemetry.cpp`
+- Create: `codes_stm32/lib/include/jb/text_writer.hpp`, `codes_stm32/lib/src/text_writer.cpp`, `codes_stm32/lib/include/jb/telemetry.hpp`, `codes_stm32/lib/src/telemetry.cpp`
+- Test: `codes_stm32/lib/tests/test_telemetry.cpp`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
@@ -2342,7 +2342,7 @@ git commit -m "build(firmware): add the pinned firmware toolchain and the lib/ h
 
 - [ ] **Step 1: Write the failing test**
 
-`firmware/joint_bench/lib/tests/test_telemetry.cpp`:
+`codes_stm32/lib/tests/test_telemetry.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -2415,7 +2415,7 @@ Expected: `=== TEST FAILED` with `fatal error: jb/telemetry.hpp: No such file or
 
 - [ ] **Step 3: Write the implementation**
 
-`firmware/joint_bench/lib/include/jb/text_writer.hpp`:
+`codes_stm32/lib/include/jb/text_writer.hpp`:
 
 ```cpp
 #pragma once
@@ -2455,7 +2455,7 @@ private:
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/src/text_writer.cpp`:
+`codes_stm32/lib/src/text_writer.cpp`:
 
 ```cpp
 #include "jb/text_writer.hpp"
@@ -2513,7 +2513,7 @@ void TextWriter::hex8(uint8_t value)
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/include/jb/telemetry.hpp`:
+`codes_stm32/lib/include/jb/telemetry.hpp`:
 
 ```cpp
 #pragma once
@@ -2547,7 +2547,7 @@ uint32_t format_event(char * buf, uint32_t cap, uint64_t t_us, std::string_view 
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/src/telemetry.cpp`:
+`codes_stm32/lib/src/telemetry.cpp`:
 
 ```cpp
 #include "jb/telemetry.hpp"
@@ -2598,7 +2598,7 @@ Expected: `TESTS PASSED ... out of 17`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add firmware/joint_bench/lib
+git add codes_stm32/lib
 git commit -m "feat(firmware): format telemetry lines without printf"
 ```
 
@@ -2607,8 +2607,8 @@ git commit -m "feat(firmware): format telemetry lines without printf"
 ### Task 6: Command input — line assembly and the parser
 
 **Files:**
-- Create: `firmware/joint_bench/lib/include/jb/line_assembler.hpp`, `firmware/joint_bench/lib/src/line_assembler.cpp`, `firmware/joint_bench/lib/include/jb/command.hpp`, `firmware/joint_bench/lib/src/command.cpp`
-- Test: `firmware/joint_bench/lib/tests/test_line_assembler.cpp`, `firmware/joint_bench/lib/tests/test_command.cpp`
+- Create: `codes_stm32/lib/include/jb/line_assembler.hpp`, `codes_stm32/lib/src/line_assembler.cpp`, `codes_stm32/lib/include/jb/command.hpp`, `codes_stm32/lib/src/command.cpp`
+- Test: `codes_stm32/lib/tests/test_line_assembler.cpp`, `codes_stm32/lib/tests/test_command.cpp`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
@@ -2621,7 +2621,7 @@ git commit -m "feat(firmware): format telemetry lines without printf"
 
 - [ ] **Step 1: Write the failing tests**
 
-`firmware/joint_bench/lib/tests/test_line_assembler.cpp`:
+`codes_stm32/lib/tests/test_line_assembler.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -2670,7 +2670,7 @@ TEST(LineAssembler, AcceptsALineOfExactlyMaxLength)
 }
 ```
 
-`firmware/joint_bench/lib/tests/test_command.cpp`:
+`codes_stm32/lib/tests/test_command.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -2756,7 +2756,7 @@ Expected: `=== TEST FAILED` with `fatal error: jb/line_assembler.hpp: No such fi
 
 - [ ] **Step 3: Write the implementation**
 
-`firmware/joint_bench/lib/include/jb/line_assembler.hpp`:
+`codes_stm32/lib/include/jb/line_assembler.hpp`:
 
 ```cpp
 #pragma once
@@ -2792,7 +2792,7 @@ private:
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/src/line_assembler.cpp`:
+`codes_stm32/lib/src/line_assembler.cpp`:
 
 ```cpp
 #include "jb/line_assembler.hpp"
@@ -2829,7 +2829,7 @@ LineAssembler::Result LineAssembler::feed(char c)
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/include/jb/command.hpp`:
+`codes_stm32/lib/include/jb/command.hpp`:
 
 ```cpp
 #pragma once
@@ -2886,7 +2886,7 @@ Command parse_command(std::string_view line);
 }  // namespace jb
 ```
 
-`firmware/joint_bench/lib/src/command.cpp`:
+`codes_stm32/lib/src/command.cpp`:
 
 ```cpp
 #include "jb/command.hpp"
@@ -3092,7 +3092,7 @@ Expected: `TESTS PASSED ... out of 27`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add firmware/joint_bench/lib
+git add codes_stm32/lib
 git commit -m "feat(firmware): parse console commands and reject input that would corrupt the stream"
 ```
 
@@ -3101,8 +3101,8 @@ git commit -m "feat(firmware): parse console commands and reject input that woul
 ### Task 7: MPU-6050 / MPU-6500 register logic
 
 **Files:**
-- Create: `firmware/joint_bench/lib/include/jb/mpu.hpp`, `firmware/joint_bench/lib/src/mpu.cpp`
-- Test: `firmware/joint_bench/lib/tests/test_mpu.cpp`
+- Create: `codes_stm32/lib/include/jb/mpu.hpp`, `codes_stm32/lib/src/mpu.cpp`
+- Test: `codes_stm32/lib/tests/test_mpu.cpp`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
@@ -3116,7 +3116,7 @@ git commit -m "feat(firmware): parse console commands and reject input that woul
 
 - [ ] **Step 1: Write the failing test**
 
-`firmware/joint_bench/lib/tests/test_mpu.cpp`:
+`codes_stm32/lib/tests/test_mpu.cpp`:
 
 ```cpp
 #include <gtest/gtest.h>
@@ -3208,7 +3208,7 @@ Expected: `=== TEST FAILED` with `fatal error: jb/mpu.hpp: No such file or direc
 
 - [ ] **Step 3: Write the implementation**
 
-`firmware/joint_bench/lib/include/jb/mpu.hpp`:
+`codes_stm32/lib/include/jb/mpu.hpp`:
 
 ```cpp
 #pragma once
@@ -3288,7 +3288,7 @@ Raw parse_block(const uint8_t * block);
 }  // namespace jb::mpu
 ```
 
-`firmware/joint_bench/lib/src/mpu.cpp`:
+`codes_stm32/lib/src/mpu.cpp`:
 
 ```cpp
 #include "jb/mpu.hpp"
@@ -3424,7 +3424,7 @@ Expected: `TESTS PASSED ... out of 32`.
 `lib/` must compile for the Cortex-M4 with the firmware's flags and must not reference libstdc++'s exception helpers (`std::string_view::substr` would). Run:
 
 ```bash
-docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD/firmware/joint_bench/lib" \
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD/codes_stm32/lib" \
   "bizon-firmware:$(sha256sum docker/dockerfile-firmware | cut -c1-12)" bash -c '
   F="-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard -std=c++17 -fno-exceptions
      -fno-rtti -fno-threadsafe-statics -Os -Wall -Wextra -Werror -Iinclude"
@@ -3437,7 +3437,7 @@ Expected: `CLEAN`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add firmware/joint_bench/lib
+git add codes_stm32/lib
 git commit -m "feat(firmware): plan MPU-6050 and MPU-6500 configuration as register writes"
 ```
 
@@ -4531,7 +4531,7 @@ Stop and ask the user to do this in STM32CubeIDE 1.18.1, then commit the result.
 
 ```bash
 git add codes_stm32
-git commit -m "build(firmware): generate the joint_bench STM32CubeIDE project"
+git commit -m "build(firmware): generate the codes_stm32 STM32CubeIDE project"
 ```
 
 Before continuing, confirm these files exist in `codes_stm32/`: `.project`, `.cproject`, `codes_stm32.ioc`, `Core/Src/main.c`, `Core/Inc/main.h`, `Core/Inc/i2c.h`, `USB_DEVICE/App/usbd_cdc_if.c`. If CubeIDE laid them out differently, adjust the paths in the steps below to match; the edits themselves do not change.
@@ -4544,7 +4544,7 @@ Before continuing, confirm these files exist in `codes_stm32/`: `.project`, `.cp
 /*
  * The seam between CubeMX-generated C and the bench firmware. Generated files call only
  * these four functions, each from inside a USER CODE block, so regenerating the project
- * from joint_bench.ioc never touches the bench logic.
+ * from codes_stm32.ioc never touches the bench logic.
  */
 #ifndef JOINT_BENCH_APP_H_
 #define JOINT_BENCH_APP_H_
