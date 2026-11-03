@@ -66,6 +66,17 @@ class Link:
             if self.clock() > deadline:
                 raise RecordError(f"no reply to {command!r}")
 
+    def drain(self, timeout_s=2.0, on_other=None):
+        """Read until the line goes quiet, handing what arrives to on_other."""
+        deadline = self.clock() + timeout_s
+        for line in self.lines():
+            if line is None:
+                return
+            if on_other:
+                on_other(parse_line(line))
+            if self.clock() > deadline:
+                raise RecordError("the firmware did not go quiet")
+
 
 def record(link, outdir, seconds, label, repo, marks=()):
     """Stream for `seconds` of firmware time into outdir. Returns the meta dict.
@@ -75,12 +86,27 @@ def record(link, outdir, seconds, label, repo, marks=()):
     """
     os.makedirs(outdir, exist_ok=False)
     others = []
-    link.command("stream off", on_other=others.append)
+    # command() returns the first reply it sees, whichever command that reply belongs to. On
+    # 2026-11-03 a stream left running by a killed reader came with a burst of stale
+    # "unknown command" replies, and `ver` and `imu info` took them for their own, so a good
+    # ten-minute recording ended with no scale factor. Hence the drain, and the check below
+    # that the reply really is the one asked for. The retry is because a port reopened on a
+    # running stream still has the firmware's ring full, and a reply that finds it full is lost.
+    for attempt in range(3):
+        try:
+            link.command("stream off", on_other=others.append)
+            break
+        except RecordError:
+            if attempt == 2:
+                raise
+    link.drain(on_other=others.append)
     ver = link.command("ver")
     info = link.command("imu info")
     if not info.ok:
         raise RecordError(f"imu info failed: {info.text}")
     fields = info.fields()
+    if "lsb_per_g" not in fields:
+        raise RecordError(f"imu info: unexpected reply {info.text!r}")
     samples = events = unknown = 0
     first_t = last_t = None
     with open(os.path.join(outdir, "raw.csv"), "w", encoding="ascii") as raw, \

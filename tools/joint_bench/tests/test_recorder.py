@@ -13,6 +13,16 @@ def _record(tmp_path, fw, clock, seconds=1, marks=()):
     return out, meta
 
 
+def _answering_imu_info_with(fw, reply):
+    write = fw.write
+
+    def patched(data):
+        write(data)
+        if data.decode().strip() == "imu info":
+            fw.out.append(reply)
+    return patched
+
+
 def test_records_the_requested_duration_of_firmware_time(tmp_path):
     clock = FakeClock()
     fw = FakeFirmware(clock)
@@ -67,6 +77,42 @@ def test_a_lost_reply_while_streaming_times_out_instead_of_spinning():
     fw.streaming = True
     with pytest.raises(RecordError, match="no reply"):
         Link(fw, clock=clock).command("stream off", timeout_s=0.5)
+
+
+def test_stale_replies_do_not_pair_with_the_handshake(tmp_path):
+    clock = FakeClock()
+    fw = FakeFirmware(clock)
+    fw.streaming = True
+    fw.out.extend(["ERR unknown command\n"] * 16)
+    _, meta = _record(tmp_path, fw, clock)
+    assert meta["firmware"] == "ver joint_bench test"
+    assert meta["imu"]["lsb_per_g"] == "8192"
+
+
+def test_a_stream_off_reply_lost_to_a_full_ring_is_asked_for_again(tmp_path):
+    clock = FakeClock()
+    fw = FakeFirmware(clock)
+    fw.streaming = True
+    write = fw.write
+    lost = []
+
+    def lose_first_reply(data):
+        write(data)
+        if not lost:
+            lost.append(fw.out.pop())
+
+    fw.write = lose_first_reply
+    _, meta = _record(tmp_path, fw, clock)
+    assert lost == ["OK stream off\n"]
+    assert meta["imu"]["lsb_per_g"] == "8192"
+
+
+def test_an_imu_info_reply_without_a_scale_stops_the_recording(tmp_path):
+    clock = FakeClock()
+    fw = FakeFirmware(clock, mute=("imu info",))
+    fw.write = _answering_imu_info_with(fw, "OK imu chip=MPU6050\n")
+    with pytest.raises(RecordError, match="unexpected reply"):
+        _record(tmp_path, fw, clock)
 
 
 def test_record_raises_when_stream_off_is_never_answered(tmp_path):
