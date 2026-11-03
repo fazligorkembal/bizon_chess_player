@@ -1,0 +1,65 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Help Height: 0
+    Tree Height: 400
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Cell Size: 0.5
+      Plane Cell Count: 10
+      Reference Frame: imu_world
+      Value: true
+    - Class: rviz_imu_plugin/Imu
+      Enabled: true
+      Name: IMU
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /imu/data
+      fixed_frame_orientation: true
+      Box properties:
+        Enable box: true
+        x_scale: 1.0
+        y_scale: 0.6
+        z_scale: 0.1
+        Box alpha: 0.8
+        Box color: 40; 120; 200
+      Axes properties:
+        Enable axes: true
+        Axes scale: 1.0
+        Axes alpha: 1.0
+      Acceleration properties:
+        Enable acceleration: false
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: imu_world
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 3.5
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Name: Current View
+      Pitch: 0.6
+      Target Frame: imu_world
+      Yaw: 3.9
+      Value: Orbit (rviz)
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 800
+  Width: 1200
