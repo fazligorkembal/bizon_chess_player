@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Live view of the bench IMU in RViz, inside the bizon_chess_player container: serial stream,
-# Madgwick filter, RViz. Keep the IMU still for the first 2 s (gyro bias). Ctrl-C stops it.
+# Madgwick filter, RViz. Keep the IMU still for the first 2 s (gyro bias). Ctrl-C stops it; from
+# another terminal use `docker stop -s INT bizon_imu_view`. A plain `docker stop` sends SIGTERM,
+# which ends the nodes before they can turn the firmware's stream off.
 #
 # Usage: imu_view [ros2 launch args...]     e.g. imu_view port:=/dev/ttyACM1
 #

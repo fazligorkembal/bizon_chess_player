@@ -49,11 +49,11 @@ The four ways to destroy a TMC2209, in the order people actually manage it:
 | PA0 | User KEY button on most BlackPill revisions. Usable, but check first. |
 | PC13 | Onboard LED. Fine to use as the heartbeat/fault indicator. |
 
-**5 V tolerance:** the ADC-capable pins (PA0-PA7, PB0, PB1) are `TTa` — **3.3 V only**. Every
-other GPIO here is `FT`. All endstop inputs below sit on `FT` pins so a 5 V-powered sensor
-module cannot destroy them, but powering the sensors from 3.3 V is still the better answer.
-This list was written for the F411 and has not been checked against the F401 datasheet. Until it
-is, treat every pin as 3.3 V only.
+**5 V tolerance:** the F401 datasheet (DS10086, DocID025644 Rev 3, table 8) lists every GPIO used
+here as `FT`, which it defines as 5 V tolerant except in analog mode. That includes PA0-PA7, PB0
+and PB1, which an earlier F411-based version of this note called `TTa`. PA3, the `VM` sense input,
+runs in analog mode and is the one pin here that is **3.3 V only**. A 5 V-powered sensor module
+cannot destroy the endstop inputs, but powering the sensors from 3.3 V is still the better answer.
 
 ## Full allocation — four steppers, one servo gripper, the bench IMU
 
@@ -298,5 +298,4 @@ Consequences, none of them blocking, all of them worth deciding before the board
   anything.
 - The wire protocol's fifth `int32` stops being steps. Redefine it as servo pulse width in
   microseconds, with `homed_bits` bit 4 always set and `stall_bits` bit 4 always clear.
-- PA2's 3.3 V logic drives most servos directly, but check yours; some need a level shifter. PA2 is
-  `TTa`, 3.3 V only, so the servo must not pull its signal line up to 5 V.
+- PA2's 3.3 V logic drives most servos directly, but check yours; some need a level shifter.

@@ -90,7 +90,9 @@ CH4 and SDA on CH5.
 Record each result in the table at the end.
 
 **A1 — identify.** In `console`: `i2cscan`, then `imu info`.
-Pass: `i2cscan` lists only 68 (the GY-521 has no second chip); `imu info` reports a chip. Note
+Pass: `i2cscan` lists only 68 (the GY-521 has no second chip); `imu info` reports a chip.
+`ERR imu: bus busy` means a line is held low: check the wiring first. SCL on the module's INT pin
+does exactly this, because INT idles low. Note
 `chip=` and `who=` and add them to the design doc's Open Items.
 
 **A5 — noise floor** (run before A2, it provides the data). Nobody touches the table:
@@ -178,9 +180,17 @@ These pin down failures the unit tests cannot reach.
     scripts/imu_view
 
 This starts the serial stream, `imu_filter_madgwick` and RViz inside the container. Keep the
-module still for the first 2 s while the gyro bias is measured. `docker stop bizon_imu_view`
-ends it. Yaw has no absolute reference without a magnetometer, so it drifts slowly. The node
-holds the serial port exclusively: stop the view before `joint_bench record`.
+module still for the first 2 s while the gyro bias is measured.
+
+`docker stop -s INT bizon_imu_view` ends it cleanly in under a second. A plain `docker stop` sends
+SIGTERM, which ends the nodes before they can turn the stream off: the firmware then keeps
+streaming into a closed port until the next reader stops it. The node holds the serial port
+exclusively, so stop the view before `joint_bench record`. If the board resets or USB drops, the
+node restarts by itself and measures the bias again.
+
+Yaw has no absolute reference without a magnetometer, so it drifts. At rest it moved 0.05 degrees
+in two minutes in one run. Two ten-minute recordings integrated with a 2 s bias, as the node
+measures it, gave 0.18 and 0.31 degrees a minute, so expect anything up to about that.
 
 ## Results
 
@@ -188,12 +198,12 @@ holds the serial port exclusively: stop the view before `joint_bench record`.
 |---|---|---|---|
 | A1 | 2026-11-03 | PASS | `i2cscan` lists 68; `chip=MPU6050 who=0x68` |
 | A2 | 2026-11-03 | PASS, provisional | 1.0207 g on z, on a breadboard with short jumpers; repeat on the platform. `20261103_210909_rest` |
-| A3 | | | |
-| A4 | | | |
+| A3 | 2026-11-03 | PASS, provisional | 600358 samples in 600 s, 0 missing, interval 999.4 us mean, 0.5 std, 998..1001. Short jumpers on a breadboard, not the final cable; no analyzer capture. `20261103_215835_a3_a4` |
+| A4 | 2026-11-03 | PASS, provisional | Same recording: `i2c_err=0 imu_overrun=0 queue_drop=0 tx_drop=0`. The analyzer check of each transaction is not done |
 | A5 | 2026-11-03 | PASS, provisional | 3.80 mg rms horizontal, same recording and setup; repeat on the platform |
 | A6 | | | |
 | A7 | | | |
 | A8 | | | |
-| R1 no IMU at power-up | | | |
-| R2 host stops reading | | | |
-| R3 USB drops out | | | |
+| R1 no IMU at power-up | 2026-11-03 | Partly | Not run with the module unplugged, which needs hands. On PB7/PB8: BUSY forced over SWD and cleared by `i2cscan`; 20 of 20 MCU resets mid-stream came back with the IMU answering |
+| R2 host stops reading | 2026-11-03 | PASS | Scripted, 5 s without reading: `tx_drop` 0 to 4704, `samples` 1001 to 7089, console fine |
+| R3 USB drops out | 2026-11-03 | PASS | 6 of 6, `tx_drop` grew each time and the stream resumed with no `imu info`. One earlier `can't set config #1, error -110`, right after a failed SWD test, cleared by a reset and did not recur |

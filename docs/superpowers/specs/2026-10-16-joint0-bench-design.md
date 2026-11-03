@@ -148,8 +148,9 @@ with no gaps.
 
 IMU INT uses EXTI6. The endstops use EXTI numbers 10, 3, 4 and 9, so there is no collision. INT
 and endstop 4 share the EXTI9_5 vector, and the HAL handler tells them apart by pin.
-PA3 and PA4 are `TTa` (3.3 V only). That is fine here: the `VM` divider output stays below 3.3 V,
-and MARK is an output. PB6, PB7 and PB8 are `FT`.
+PA3 runs in analog mode, where an `FT` pin is not 5 V tolerant. That is fine here: the `VM` divider
+output stays below 3.3 V. The other pins in this table are `FT` in the F401 datasheet (DS10086,
+DocID025644 Rev 3, table 8).
 
 The wiring guide's allocation table is updated to match as part of this work.
 
