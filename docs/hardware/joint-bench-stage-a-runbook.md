@@ -199,7 +199,7 @@ measures it, gave 0.18 and 0.31 degrees a minute, so expect anything up to about
 | A1 | 2026-11-03 | PASS | `i2cscan` lists 68; `chip=MPU6050 who=0x68` |
 | A2 | 2026-11-03 | PASS, provisional | 1.0207 g on z, on a breadboard with short jumpers; repeat on the platform. `20261103_210909_rest` |
 | A3 | 2026-11-03 | PASS, provisional | 600358 samples in 600 s, 0 missing, interval 999.4 us mean, 0.5 std, 998..1001. Short jumpers on a breadboard, not the final cable; no analyzer capture. `20261103_215835_a3_a4` |
-| A4 | 2026-11-03 | PASS, provisional | Same recording: `i2c_err=0 imu_overrun=0 queue_drop=0 tx_drop=0`. The analyzer check of each transaction is not done |
+| A4 | 2026-11-03 | PASS, provisional | Same recording: `i2c_err=0 imu_overrun=0 queue_drop=0 tx_drop=0`. The analyzer check of each transaction is not done. `log.txt` holds 4 `unknown command` replies from an unknown source; the samples are unaffected |
 | A5 | 2026-11-03 | PASS, provisional | 3.80 mg rms horizontal, same recording and setup; repeat on the platform |
 | A6 | | | |
 | A7 | | | |
