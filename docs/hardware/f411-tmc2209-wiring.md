@@ -10,8 +10,9 @@ hardware/software boundary this pinout serves) and
 `docs/superpowers/plans/2026-08-21-hardware-bringup.md` (Tasks 1-5 are the host-side work that
 consumes it).
 
-The board is a BlackPill with an STM32F401CEU6 in UFQFPN48: SWD reads device ID 0x433 and the
-chip's marking confirms it (2026-11-01). This file's name predates that finding. That package has PORTA 0-15,
+The board is a BlackPill with an STM32F401CDU6 in UFQFPN48, 384 KB of flash, replacing a first
+board with an STM32F401CEU6, 512 KB. SWD reads device ID 0x433 on both and the markings confirm
+them (2026-11-01, 2026-11-03). This file's name predates that finding. That package has PORTA 0-15,
 PORTB 0-15, PC13/14/15 and PH0/PH1 — **no PORTC 0-12**, which is why USART6 is unusable here
 (its only pins on this package are PA11/PA12, taken by USB).
 
@@ -67,9 +68,9 @@ so they cannot share a timer's time base.
 | J2 `pris1` DIR | PB13 | GPIO out | |
 | J3 `rev2` STEP | PB0 | TIM3_CH3 (AF2) | |
 | J3 `rev2` DIR | PB14 | GPIO out | |
-| J4 `rev3` STEP | PA1 | TIM5_CH2 (AF2) | moved off PB6 so I2C1 can have PB6/PB7 |
+| J4 `rev3` STEP | PA1 | TIM5_CH2 (AF2) | moved off PB6 for the IMU |
 | J4 `rev3` DIR | PB15 | GPIO out | |
-| Gripper servo | PB8 | TIM10_CH1 (AF3) | 50 Hz, 1 MHz time base |
+| Gripper servo | PA2 | TIM9_CH1 (AF3) | 50 Hz, 1 MHz time base; moved off PB8 for the IMU |
 | `EN`, all drivers | PB5 | GPIO out, active LOW | one net, see below |
 | TMC UART | PA9 | USART1_TX (AF7), half-duplex single-wire | 115200 baud |
 | Endstop 1 | PB10 | input, pull-up, EXTI10 | |
@@ -78,16 +79,20 @@ so they cannot share a timer's time base.
 | Endstop 4 | PB9 | input, pull-up, EXTI9 | |
 | DIAG 1-4 (StallGuard) | PA5, PA6, PA7, PB1 | input, polled | 3.3 V from driver VIO |
 | Heartbeat / fault LED | PC13 | GPIO out | |
-| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-521 on the platform, 400 kHz |
+| IMU SCL | PB8 | I2C1_SCL (AF4), open-drain | GY-521 on the platform, 400 kHz |
 | IMU SDA | PB7 | I2C1_SDA (AF4), open-drain | |
-| IMU INT | PA2 | input, EXTI2, rising edge | data ready; the sample clock |
+| IMU INT | PB6 | input, EXTI6, rising edge | data ready; the sample clock |
 | `VM` sense | PA3 | ADC1_IN3 | 100k/10k divider, stage B |
 | MARK | PA4 | GPIO out | logic-analyzer timing reference |
 | Control tick | TIM4 | — | 1 kHz executor tick; a time base, needs no pin |
 
+**The IMU's wires run straight.** `PB6 PB7 PB8 PB9 5V GND` is one stretch of one row and carries
+INT, SDA, SCL, nothing, VCC, GND. Laid beside the GY-521, only VCC and GND cross.
+
 **EXTI numbers must be distinct.** EXTI lines are shared by *pin number* across ports, so PA10
 and PB10 cannot both be edge sources. The endstops above use numbers 10, 3, 4 and 9, and
-the IMU's data-ready line uses 2 — no collision. The DIAG lines are polled rather than edge-triggered precisely to avoid burning four
+the IMU's data-ready line uses 6 — no collision. The IMU and endstop 4 share the EXTI9_5 vector, and
+the handler tells them apart by pin. The DIAG lines are polled rather than edge-triggered precisely to avoid burning four
 more EXTI numbers on a signal that is a slow fault flag, not a timing event.
 
 **One `EN` net for all drivers.** A fault should drop every axis, and the host's latched-fault
@@ -293,4 +298,5 @@ Consequences, none of them blocking, all of them worth deciding before the board
   anything.
 - The wire protocol's fifth `int32` stops being steps. Redefine it as servo pulse width in
   microseconds, with `homed_bits` bit 4 always set and `stall_bits` bit 4 always clear.
-- PB8's 3.3 V logic drives most servos directly, but check yours; some need a level shifter.
+- PA2's 3.3 V logic drives most servos directly, but check yours; some need a level shifter. PA2 is
+  `TTa`, 3.3 V only, so the servo must not pull its signal line up to 5 V.

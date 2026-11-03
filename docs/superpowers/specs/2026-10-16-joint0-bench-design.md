@@ -116,11 +116,24 @@ marking confirmed), not the F411 this section was checked against. The allocatio
 again against CubeIDE 1.18.1's `STM32F401C(D-E)Ux.xml` and `GPIO-STM32F401_gpio_v1_0_Modes.xml`:
 same signals, same AF numbers, no pin moves. The F401 lacks only SPI4/5, I2S and SDIO.
 
+**Second board, 2026-11-03.** The bench now runs on a board with an STM32F401CDU6: same device
+ID 0x433 and the same CubeMX pin data, but 384 KB of flash instead of 512 KB. The linker script
+says 384K, which fits both boards. USB enumerates and RCC reads back the planned PLL, so this
+board's crystal is 25 MHz too.
+
+**IMU pins moved, 2026-11-03.** On one row of the BlackPill, `PB6 PB7 PB8 PB9 5V GND` now carries
+INT, SDA, SCL, nothing, VCC, GND. Laid beside the GY-521, whose pins read `INT AD0 XCL XDA SDA SCL
+GND VCC`, the signal wires run straight and only VCC and GND cross. INT was on PA2, on the other
+row, and SCL and SDA crossed. So SCL moves from PB6 to PB8 and INT from PA2 to PB6; I2C1 accepts
+SCL on either pin. The servo needs a timer channel and leaves PB8 for PA2, TIM9_CH1 (AF3), and
+endstop 4 stays on PB9. On hardware with a GY-521, `i2cscan` finds 68 and the stream runs at 1 kHz
+with no gaps.
+
 | Function | Pin | Mode | Stage |
 |---|---|---|---|
-| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | A |
+| IMU SCL | PB8 | I2C1_SCL (AF4), open-drain | A |
 | IMU SDA | PB7 | I2C1_SDA (AF4), open-drain | A |
-| IMU INT (data ready) | PA2 | GPIO input, EXTI2, rising edge | A |
+| IMU INT (data ready) | PB6 | GPIO input, EXTI6, rising edge | A |
 | MARK | PA4 | GPIO output, push-pull | A |
 | Heartbeat LED | PC13 | GPIO output, active low | A |
 | J1 STEP | PA8 | TIM1_CH1 (AF1) | B |
@@ -133,9 +146,10 @@ same signals, same AF numbers, no pin moves. The F401 lacks only SPI4/5, I2S and
 | J4 STEP (future) | PA1 | TIM5_CH2 (AF2) | — |
 | Spare | PA0 (user KEY on most boards), PA10 | — | — |
 
-IMU INT uses EXTI2. The endstops use EXTI numbers 10, 3, 4 and 9, so there is no collision.
-PA2, PA3 and PA4 are `TTa` (3.3 V only). That is fine here: INT comes from a 3.3 V device, the
-`VM` divider output stays below 3.3 V, and MARK is an output. PB6 and PB7 are `FT`.
+IMU INT uses EXTI6. The endstops use EXTI numbers 10, 3, 4 and 9, so there is no collision. INT
+and endstop 4 share the EXTI9_5 vector, and the HAL handler tells them apart by pin.
+PA3 and PA4 are `TTa` (3.3 V only). That is fine here: the `VM` divider output stays below 3.3 V,
+and MARK is an output. PB6, PB7 and PB8 are `FT`.
 
 The wiring guide's allocation table is updated to match as part of this work.
 
@@ -248,14 +262,14 @@ which confirms the 25 MHz crystal.
 |---|---|
 | SYS | Debug: Serial Wire. Timebase: SysTick. |
 | USB_OTG_FS | Device only. Middleware `USB_DEVICE`, class CDC. |
-| I2C1 | PB6/PB7, Fast Mode 400 kHz, DMA on RX, internal pull-ups on so the lines idle high with no module connected. |
-| GPIO | PA2 EXTI rising; PA4 output, low; PC13 output, high (LED off). |
+| I2C1 | PB7/PB8, Fast Mode 400 kHz, DMA on RX, internal pull-ups on so the lines idle high with no module connected. |
+| GPIO | PB6 EXTI rising; PA4 output, low; PC13 output, high (LED off). |
 | DWT | Cycle counter enabled in code; it is not a CubeMX setting. |
 
 **NVIC priority order, highest first:**
 
 1. reserved for the step timers (stage B);
-2. EXTI2, I2C1 event and error, and the I2C1 RX DMA stream;
+2. EXTI9_5 (IMU INT), I2C1 event and error, and the I2C1 RX DMA stream;
 3. TIM4 control tick (stage B);
 4. USB OTG FS;
 5. SysTick.
@@ -317,7 +331,7 @@ ADXL345 at address 0x53 returns `DEVID` 0xE5. A driver is written only for the f
 found.
 
 **Primary path, data-ready interrupt.** The IMU samples on its own clock at 1 kHz and raises
-`INT`. The EXTI2 handler timestamps the edge and starts a DMA read of the data block. The
+`INT`. The EXTI handler timestamps the edge and starts a DMA read of the data block. The
 DMA-complete callback pushes the raw sample and its timestamp into a single-producer,
 single-consumer queue, and the main loop formats and transmits it. The MCU never polls the IMU
 on a timer of its own, because two free-running clocks drift and the result is duplicated or
@@ -446,7 +460,8 @@ linear velocity), and compare against the same profile run MCU-side. The chosen 
 These need to be read off labels or measured. None of them blocks stage A except the trial
 board's hole count, which the placement drawing needs.
 
-- The IMU chip on the GY-521. Firmware test A1 settles it.
+- The IMU chip on the GY-521. Test A1 settled it on 2026-11-03 for the first module:
+  `chip=MPU6050 who=0x68`. A further module needs the same check.
 - The 6 × 9 cm trial board's hole count, and the BlackPill's row spacing. Measure both.
 - The 10 × 10 cm stage-B board, not yet bought.
 - NEMA17 model, rated phase current and holding torque.

@@ -53,6 +53,9 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
    Application*.
 3. The LED blinks fast (no IMU yet). The PC sees a USB serial port (VID:PID 0483:5740).
 
+`codes_stm32.launch` runs SWD at 100 kHz. Over jumper wires, reads at 480 kHz and above sometimes
+returned wrong bytes. A flash takes about 25 s at this speed.
+
 ## 6. Connect the IMU
 
 1. Unplug USB. Wire the GY-521 cable: J1 VCC → VCC, GND → GND, SCL → SCL, SDA → SDA,
@@ -62,6 +65,9 @@ and R2. Then the wires, from the bottom (mirrored) drawing, one net at a time, t
    along the files (a to h) and its Y arrow along the ranks (1 to 8), and fix it down
    (double-sided tape or a screw): a loose sensor measures its own rattle.
 3. Plug USB. The LED blinks slowly.
+
+Without the trial board, wire the module straight to the BlackPill with short jumpers and no
+extra pull-ups: INT to PB6, SDA to PB7, SCL to PB8, VCC to 5V, GND to G, all on one row.
 
 ## 7. Software on the bench machine
 
@@ -166,15 +172,25 @@ These pin down failures the unit tests cannot reach.
    left unfinished when the device stops being configured; without it the port would stay
    silent until reset.
 
+## 11. Live view in RViz
+
+    scripts/rosbuild --packages-select bizon_imu
+    scripts/imu_view
+
+This starts the serial stream, `imu_filter_madgwick` and RViz inside the container. Keep the
+module still for the first 2 s while the gyro bias is measured. `docker stop bizon_imu_view`
+ends it. Yaw has no absolute reference without a magnetometer, so it drifts slowly. The node
+holds the serial port exclusively: stop the view before `joint_bench record`.
+
 ## Results
 
 | Test | Date | Result | Notes (values, directory names) |
 |---|---|---|---|
-| A1 | | | |
-| A2 | | | |
+| A1 | 2026-11-03 | PASS | `i2cscan` lists 68; `chip=MPU6050 who=0x68` |
+| A2 | 2026-11-03 | PASS, provisional | 1.0207 g on z, on a breadboard with short jumpers; repeat on the platform. `20261103_210909_rest` |
 | A3 | | | |
 | A4 | | | |
-| A5 | | | |
+| A5 | 2026-11-03 | PASS, provisional | 3.80 mg rms horizontal, same recording and setup; repeat on the platform |
 | A6 | | | |
 | A7 | | | |
 | A8 | | | |

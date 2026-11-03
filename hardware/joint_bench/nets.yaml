@@ -7,7 +7,7 @@
 title: Joint0 bench - stage A
 
 parts:
-  U1: {kind: blackpill, value: WeAct BlackPill F401CEU6}
+  U1: {kind: blackpill, value: WeAct BlackPill F401CDU6}
   # The GY-521 sits on the platform beside the chessboard, 30-60 cm away; this is the
   # perfboard end of its cable. The module breaks out no FSYNC pin.
   J1: {kind: header, value: IMU GY-521, pins: [VCC, GND, SCL, SDA, INT]}
@@ -27,11 +27,11 @@ nets:
   +5V: [U1.5V, J1.VCC, J3.5V]
   GND: [U1.GND, J1.GND, J2.GND, J3.GND]
   +3V3: [U1.3V3, J3.3V3, JP1.A, JP2.A]
-  SCL: [U1.PB6, J1.SCL, J2.CH4_SCL, R1.2]
+  SCL: [U1.PB8, J1.SCL, J2.CH4_SCL, R1.2]
   SDA: [U1.PB7, J1.SDA, J2.CH5_SDA, R2.2]
   SCL_PU: [JP1.B, R1.1]
   SDA_PU: [JP2.B, R2.1]
-  IMU_INT: [U1.PA2, J1.INT, J2.CH6_IMU_INT]
+  IMU_INT: [U1.PB6, J1.INT, J2.CH6_IMU_INT]
   MARK: [U1.PA4, J2.CH7_MARK]
   # Stage-B signals, brought to the analyzer header now so the pins can be probed from
   # the first board onward.

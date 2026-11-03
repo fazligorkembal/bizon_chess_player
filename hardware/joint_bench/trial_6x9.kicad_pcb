@@ -48,7 +48,7 @@
           (size 1 1)
           (thickness 0.15))
         (justify left)))
-    (property "Value" "WeAct BlackPill F401CEU6"
+    (property "Value" "WeAct BlackPill F401CDU6"
       (at -2.37 19.07 0)
       (layer "F.Fab")
       (uuid "e1c79ee0-35e0-5ea8-bbbf-3383406c2f0c")
@@ -461,7 +461,6 @@
       (size 1.8 1.8)
       (drill 1)
       (layers "*.Cu" "*.Mask")
-      (net 6 "IMU_INT")
       (uuid "ba23a9b8-388e-55a0-a24d-85450a6a91cb"))
     (fp_text user "PA12"
       (at 20.32 -2.6 90)
@@ -716,7 +715,7 @@
       (size 1.8 1.8)
       (drill 1)
       (layers "*.Cu" "*.Mask")
-      (net 8 "SCL")
+      (net 6 "IMU_INT")
       (uuid "8d031712-e13f-5732-8f4b-76b8ce7bc85f"))
     (fp_text user "PB0"
       (at 33.02 17.84 90)
@@ -810,6 +809,7 @@
       (size 1.8 1.8)
       (drill 1)
       (layers "*.Cu" "*.Mask")
+      (net 8 "SCL")
       (uuid "e9729faa-6645-5fc6-8196-e454de932e37"))
     (fp_text user "PB2"
       (at 38.1 17.84 90)

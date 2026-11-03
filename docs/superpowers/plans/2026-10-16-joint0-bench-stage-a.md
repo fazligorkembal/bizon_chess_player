@@ -28,18 +28,21 @@ blocks of finished tasks are left as the record of what was committed.
   `scripts/fwbuild` remains only for `--test`, the host tests of `lib/`.
 - **Project location:** the CubeIDE project is `codes_stm32/` at the repository root, and `lib/`
   moved into it.
-- **I2C bus recovery:** added after Task 11, see the design doc, section 4.5. PB6 and PB7 have
+- **I2C bus recovery:** added after Task 11, see the design doc, section 4.5. PB7 and PB8 have
   their internal pull-ups on, and `drivers/imu.cpp` has `bus_clear()`, so its listing in Task 11
   is older than the file.
 - **Direction analysis and test A8:** added after Task 12, see the design doc, sections 5 and 6,
   and the runbook. `tools/joint_bench` is newer than its listings in Tasks 8 and 9.
+- **IMU pins and second board, 2026-11-03:** see the design doc, section 3. INT is on PB6 (EXTI6,
+  `EXTI9_5_IRQn`), SDA on PB7 and SCL on PB8, and the servo moved to PA2. The steps below say so.
+  The board is now an STM32F401CDU6 with 384 KB of flash, on the same CubeMX pin data.
 
 ## Global Constraints
 
 - Scope is stage A only: BlackPill, GY-521 IMU, logic-analyzer header, MARK line. No TMC2209, motor, 24 V, endstop or `VM` sense circuitry is built, drawn or coded here.
-- Pins (spec §3.1): IMU SCL **PB6**, SDA **PB7** (I2C1, AF4, Fast Mode 400 kHz); IMU INT **PA2** (EXTI2, rising edge); MARK **PA4** (output, starts low); LED **PC13** (active low). PA13/PA14 are never allocated.
+- Pins (spec §3.1): IMU SCL **PB8**, SDA **PB7** (I2C1, AF4, Fast Mode 400 kHz); IMU INT **PB6** (EXTI6, rising edge); MARK **PA4** (output, starts low); LED **PC13** (active low). PA13/PA14 are never allocated.
 - Clock (spec §4.2): HSE 25 MHz; PLL M = 25, N = 336, P = 4, Q = 7; SYSCLK 84 MHz; USB 48 MHz; AHB 84 MHz; APB1 42 MHz; APB2 84 MHz; flash latency 2 wait states.
-- NVIC order, highest first: step timers (reserved, stage B); EXTI2, I2C1 event/error and I2C1 RX DMA; TIM4 tick (stage B); USB OTG FS; SysTick.
+- NVIC order, highest first: step timers (reserved, stage B); EXTI9_5 (IMU INT), I2C1 event/error and I2C1 RX DMA; TIM4 tick (stage B); USB OTG FS; SysTick.
 - Firmware language: C++17 for `app/`, `drivers/`, `lib/`, with `-fno-exceptions -fno-rtti`, no heap after init. Generated CubeMX code stays C and is edited only inside `USER CODE` blocks.
 - `lib/` never includes HAL or CMSIS headers.
 - Protocol (spec §4.4), exact line formats: `T,<seq>,<t_us>,<ax>,<ay>,<az>,<gx>,<gy>,<gz>`; `E,<t_us>,<name>`; `OK ...` / `ERR ...`; `# ...`. Lines end in `\n`.
@@ -956,11 +959,11 @@ nets:
   +5V: [U1.5V, J1.VCC, J3.5V]
   GND: [U1.GND, J1.GND, J2.GND, J3.GND]
   +3V3: [U1.3V3, J3.3V3, JP1.A, JP2.A]
-  SCL: [U1.PB6, J1.SCL, J2.CH4_SCL, R1.2]
+  SCL: [U1.PB8, J1.SCL, J2.CH4_SCL, R1.2]
   SDA: [U1.PB7, J1.SDA, J2.CH5_SDA, R2.2]
   SCL_PU: [JP1.B, R1.1]
   SDA_PU: [JP2.B, R2.1]
-  IMU_INT: [U1.PA2, J1.INT, J2.CH6_IMU_INT]
+  IMU_INT: [U1.PB6, J1.INT, J2.CH6_IMU_INT]
   MARK: [U1.PA4, J2.CH7_MARK]
   # Stage-B signals, brought to the analyzer header now so the pins can be probed from
   # the first board onward.
@@ -1084,7 +1087,7 @@ Replace the row
 with:
 
 ```
-| J4 `rev3` STEP | PA1 | TIM5_CH2 (AF2) | moved off PB6 so I2C1 can have PB6/PB7 |
+| J4 `rev3` STEP | PA1 | TIM5_CH2 (AF2) | moved off PB6 for the IMU |
 ```
 
 Replace the row `| Spare timer | TIM5 | — | reserved for the 100 Hz control tick |` with:
@@ -1096,9 +1099,9 @@ Replace the row `| Spare timer | TIM5 | — | reserved for the 100 Hz control ti
 After the row `| Heartbeat / fault LED | PC13 | GPIO out | |` insert:
 
 ```
-| IMU SCL | PB6 | I2C1_SCL (AF4), open-drain | GY-521 on the platform, 400 kHz |
+| IMU SCL | PB8 | I2C1_SCL (AF4), open-drain | GY-521 on the platform, 400 kHz |
 | IMU SDA | PB7 | I2C1_SDA (AF4), open-drain | |
-| IMU INT | PA2 | input, EXTI2, rising edge | data ready; the sample clock |
+| IMU INT | PB6 | input, EXTI6, rising edge | data ready; the sample clock |
 | `VM` sense | PA3 | ADC1_IN3 | 100k/10k divider, stage B |
 | MARK | PA4 | GPIO out | logic-analyzer timing reference |
 ```
@@ -4507,7 +4510,7 @@ git commit -m "feat(tools): analyse bench recordings for sample integrity, noise
 **Interfaces:**
 - Consumes: `lib/` (Tasks 4-7), compiled into the target from here on.
 - Produces:
-  - CubeMX pin labels: `IMU_INT_Pin`/`IMU_INT_GPIO_Port` (PA2), `MARK_Pin`/`MARK_GPIO_Port` (PA4), `LED_Pin`/`LED_GPIO_Port` (PC13), in `main.h`.
+  - CubeMX pin labels: `IMU_INT_Pin`/`IMU_INT_GPIO_Port` (PB6), `MARK_Pin`/`MARK_GPIO_Port` (PA4), `LED_Pin`/`LED_GPIO_Port` (PC13), in `main.h`.
   - `extern I2C_HandleTypeDef hi2c1;` in `i2c.h`; `extern USBD_HandleTypeDef hUsbDeviceFS;` from `usb_device.c`; `uint8_t CDC_Transmit_FS(uint8_t*, uint16_t)` in `usbd_cdc_if.h`.
   - `app/app.h`: `void app_init(void); void app_loop(void); void app_usb_rx(const uint8_t*, uint32_t); void app_usb_tx_done(void);` with C linkage.
   - The target build: every `.cpp` in `app/`, `drivers/` and `lib/src/` is compiled in, by glob, so Task 11 adds files without touching CMake.
@@ -4519,14 +4522,14 @@ Stop and ask the user to do this in STM32CubeIDE 1.18.1, then commit the result.
 1. **File → New → STM32 Project** → MCU selector → `STM32F401CEUx`. Project name `codes_stm32`; untick *Use default location* and set the location to the repository root, so the `.ioc` lands at `codes_stm32/codes_stm32.ioc`; Targeted Language *C++*; Binary *Executable*; Project Type *STM32Cube*.
 2. **System Core → RCC:** High Speed Clock (HSE) = *Crystal/Ceramic Resonator*. Low Speed Clock (LSE) = *Disable*.
 3. **System Core → SYS:** Debug = *Serial Wire*. Timebase Source = *SysTick*.
-4. **Connectivity → I2C1:** mode *I2C*. Make sure the pins are **PB6 = I2C1_SCL, PB7 = I2C1_SDA** (click the pin in the chip view to reassign if CubeMX picked PB8/PB9). GPIO Settings: GPIO Pull-up/Pull-down = *Pull-up* on both. Parameter Settings: I2C Speed Mode = *Fast Mode*, Clock Speed = *400000*. DMA Settings: *Add* `I2C1_RX`, priority *High*, mode *Normal*. NVIC Settings: tick *I2C1 event interrupt* and *I2C1 error interrupt*.
+4. **Connectivity → I2C1:** mode *I2C*. Make sure the pins are **PB8 = I2C1_SCL, PB7 = I2C1_SDA** (click the pin in the chip view to reassign if CubeMX picked PB6 or PB9). GPIO Settings: GPIO Pull-up/Pull-down = *Pull-up* on both. Parameter Settings: I2C Speed Mode = *Fast Mode*, Clock Speed = *400000*. DMA Settings: *Add* `I2C1_RX`, priority *High*, mode *Normal*. NVIC Settings: tick *I2C1 event interrupt* and *I2C1 error interrupt*.
 5. **Connectivity → USB_OTG_FS:** Mode = *Device_Only*. Leave *Activate_VBUS* disabled: it would take PA9, the stage-B TMC UART pin.
 6. **Middleware → USB_DEVICE:** Class for FS IP = *Communication Device Class (Virtual Port Com)*. Leave VID 1155 (0x0483) and PID 22336 (0x5740): the host tool finds the board by that pair.
 7. **GPIO, in the chip view:**
-   - PA2 → *GPIO_EXTI2*; in System Core → GPIO: mode *External Interrupt Mode with Rising edge trigger detection*, no pull, User Label `IMU_INT`.
+   - PB6 → *GPIO_EXTI6*; in System Core → GPIO: mode *External Interrupt Mode with Rising edge trigger detection*, no pull, User Label `IMU_INT`.
    - PA4 → *GPIO_Output*; output level *Low*, User Label `MARK`.
    - PC13 → *GPIO_Output*; output level *High* (LED off), User Label `LED`.
-8. **System Core → NVIC:** enable *EXTI line2 interrupt*. Priority group *4 bits*. Preemption priorities: EXTI line2 = 2, I2C1 event = 2, I2C1 error = 2, DMA1 stream (I2C1_RX) = 2, USB On The Go FS global = 4, System tick timer = 15. Priorities 0-1 stay free for stage B's step timers.
+8. **System Core → NVIC:** enable *EXTI line[9:5] interrupts*. Priority group *4 bits*. Preemption priorities: EXTI line[9:5] = 2, I2C1 event = 2, I2C1 error = 2, DMA1 stream (I2C1_RX) = 2, USB On The Go FS global = 4, System tick timer = 15. Priorities 0-1 stay free for stage B's step timers.
 9. **Clock Configuration:** input frequency 25 MHz; PLL Source Mux = *HSE*; /M = 25, ×N = 336, /P = 4, /Q = 7; System Clock Mux = *PLLCLK*; AHB /1, APB1 /2, APB2 /1. Check that HCLK reads 84 MHz and the 48 MHz clock reads 48 MHz, with no red fields, and that RCC's flash latency reads 2 WS.
 10. **Project Manager → Project:** Toolchain/IDE stays *STM32CubeIDE*. Use the installed STM32Cube FW_F4 package; the `.ioc` records its version.
 11. **Project Manager → Code Generator:** *Copy only the necessary library files*; tick *Generate peripheral initialization as a pair of '.c/.h' files per peripheral*; tick *Keep User Code when re-generating*.

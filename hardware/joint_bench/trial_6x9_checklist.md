@@ -8,7 +8,7 @@ hole seen from the component side; the mirrored bottom drawing shows the same nu
 
 | Ref | Part | Pin 1 hole | Runs |
 |---|---|---|---|
-| U1 | WeAct BlackPill F401CEU6 | 2, 5 | two rows, see drawing |
+| U1 | WeAct BlackPill F401CDU6 | 2, 5 | two rows, see drawing |
 | J1 | IMU GY-521 | 31, 3 | down |
 | JP1 | SCL pull-up | 30, 12 | right |
 | R1 | 2.2k | 24, 12 | right |
@@ -56,7 +56,7 @@ hole seen from the component side; the mirrored bottom drawing shows the same nu
 
 - [ ] J1 pin 5 (INT) — hole 31, 7
 - [ ] J2 pin 7 (CH6_IMU_INT) — hole 9, 19
-- [ ] U1 pin 28 (PA2) — hole 9, 11
+- [ ] U1 pin 14 (PB6) — hole 15, 5
 
 ### MARK
 
@@ -68,7 +68,7 @@ hole seen from the component side; the mirrored bottom drawing shows the same nu
 - [ ] J1 pin 3 (SCL) — hole 31, 5
 - [ ] J2 pin 5 (CH4_SCL) — hole 7, 19
 - [ ] R1 pin 2 — hole 28, 12
-- [ ] U1 pin 14 (PB6) — hole 15, 5
+- [ ] U1 pin 16 (PB8) — hole 17, 5
 
 ### SCL_PU
 
@@ -106,9 +106,9 @@ Each line must beep end to end.
 - [ ] DIR1: J2.2 — U1.1
 - [ ] ENDSTOP1: J2.3 — U1.37
 - [ ] GND: J1.2 — J2.9 — J3.3 — U1.19 — U1.39
-- [ ] IMU_INT: J1.5 — J2.7 — U1.28
+- [ ] IMU_INT: J1.5 — J2.7 — U1.14
 - [ ] MARK: J2.8 — U1.30
-- [ ] SCL: J1.3 — J2.5 — R1.2 — U1.14
+- [ ] SCL: J1.3 — J2.5 — R1.2 — U1.16
 - [ ] SCL_PU: JP1.2 — R1.1
 - [ ] SDA: J1.4 — J2.6 — R2.2 — U1.15
 - [ ] SDA_PU: JP2.2 — R2.1
