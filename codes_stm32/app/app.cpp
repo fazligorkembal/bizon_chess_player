@@ -81,6 +81,12 @@ void cmd_i2cscan()
 {
   uint8_t found[16];
   const int n = jb::imu_scan(found, 16);
+  // A stuck bus was never scanned. Answering "none" would read as an empty, healthy bus and send
+  // the person at the bench looking for a missing module instead of a line held low.
+  if (n < 0) {
+    reply_text(false, "imu: bus busy");
+    return;
+  }
   char buf[jb::kMaxLine];
   jb::TextWriter w(buf, sizeof(buf));
   w.str("OK i2cscan");

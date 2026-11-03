@@ -191,7 +191,7 @@ ImuCounters imu_counters()
 int imu_scan(uint8_t * found, int max)
 {
   if (!bus_ready()) {
-    return 0;
+    return -1;
   }
   int n = 0;
   for (uint8_t addr = 0x08; addr <= 0x77 && n < max; ++addr) {

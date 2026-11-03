@@ -37,7 +37,8 @@ bool imu_pop(ImuSample * out);
 
 ImuCounters imu_counters();
 
-// Blocking scan of 0x08..0x77. Writes up to `max` addresses, returns how many were found.
+// Blocking scan of 0x08..0x77. Writes up to `max` addresses and returns how many were found, or
+// -1 if the bus is stuck and was not scanned.
 int imu_scan(uint8_t * found, int max);
 
 // Interrupt-side hooks, called from the HAL callbacks in imu.cpp.
