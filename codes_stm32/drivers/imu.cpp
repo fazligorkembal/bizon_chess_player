@@ -10,7 +10,7 @@ namespace jb
 namespace
 {
 constexpr uint32_t kTimeoutMs = 10;
-constexpr uint16_t kScl = GPIO_PIN_6;  // PB6 and PB7, as plain GPIOs only inside bus_clear()
+constexpr uint16_t kScl = GPIO_PIN_8;  // PB8 and PB7, as plain GPIOs only inside bus_clear()
 constexpr uint16_t kSda = GPIO_PIN_7;
 
 mpu::Chip g_chip = mpu::Chip::Unknown;
