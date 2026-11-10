@@ -8,7 +8,9 @@
 #include "jb/line_assembler.hpp"
 #include "jb/telemetry.hpp"
 #include "jb/text_writer.hpp"
+#include "jb/tmc_uart.hpp"
 #include "main.h"
+#include "tmc_bus.hpp"
 #include "usb_port.hpp"
 
 #ifndef JB_VERSION
@@ -31,7 +33,7 @@ void send(const jb::TextWriter & w, const char * buf)
 
 void reply_text(bool ok, std::string_view text)
 {
-  char buf[128];
+  char buf[192];
   jb::TextWriter w(buf, sizeof(buf));
   w.str(ok ? "OK " : "ERR ");
   w.str(text);
@@ -142,6 +144,92 @@ void cmd_mark(const char * label)
   reply_text(true, "mark");
 }
 
+void hex32(jb::TextWriter & w, uint32_t value)
+{
+  w.str("0x");
+  w.hex8(static_cast<uint8_t>(value >> 24));
+  w.hex8(static_cast<uint8_t>(value >> 16));
+  w.hex8(static_cast<uint8_t>(value >> 8));
+  w.hex8(static_cast<uint8_t>(value));
+}
+
+void reply_tmc_failure(jb::TmcStatus status, jb::tmc2209::ReplyStatus why)
+{
+  char buf[jb::kMaxLine];
+  jb::TextWriter w(buf, sizeof(buf));
+  switch (status) {
+    case jb::TmcStatus::Ok: return;
+    case jb::TmcStatus::BadArgument: w.str("tmc: bad argument"); break;
+    case jb::TmcStatus::SendFailed: w.str("tmc: send failed"); break;
+    // The usual cause on the bench: VM is off, and the driver's logic runs from VM.
+    case jb::TmcStatus::NoReply: w.str("tmc: no reply (VM on? wiring? pull-up?)"); break;
+    case jb::TmcStatus::BadReply:
+      w.str("tmc: bad reply (");
+      w.str(jb::tmc2209::reply_status_name(why));
+      w.put(')');
+      break;
+  }
+  reply_text(false, std::string_view(buf, w.size()));
+}
+
+// "OK tmc reg=0x06 val=0x21000041"
+void cmd_tmc_read(uint8_t reg)
+{
+  uint32_t value = 0;
+  jb::tmc2209::ReplyStatus why = jb::tmc2209::ReplyStatus::Ok;
+  const jb::TmcStatus status = jb::tmc_read(reg, &value, &why);
+  if (status != jb::TmcStatus::Ok) {
+    reply_tmc_failure(status, why);
+    return;
+  }
+  char buf[jb::kMaxLine];
+  jb::TextWriter w(buf, sizeof(buf));
+  w.str("OK tmc reg=0x");
+  w.hex8(reg);
+  w.str(" val=");
+  hex32(w, value);
+  w.put('\n');
+  send(w, buf);
+}
+
+// A write has no reply, so it counts only if IFCNT, the driver's 8-bit count of accepted
+// writes, moved by exactly one across it.
+// "OK tmc write reg=0x00 val=0x000001c1 ifcnt=0x05->0x06"
+void cmd_tmc_write(uint8_t reg, uint32_t value)
+{
+  if (const char * refusal = jb::tmc2209::bench_write_refusal(reg, value)) {
+    reply_text(false, refusal);
+    return;
+  }
+  uint32_t before = 0;
+  uint32_t after = 0;
+  jb::tmc2209::ReplyStatus why = jb::tmc2209::ReplyStatus::Ok;
+  jb::TmcStatus status = jb::tmc_read(jb::tmc2209::kIfcnt, &before, &why);
+  if (status == jb::TmcStatus::Ok) {
+    status = jb::tmc_write(reg, value);
+  }
+  if (status == jb::TmcStatus::Ok) {
+    status = jb::tmc_read(jb::tmc2209::kIfcnt, &after, &why);
+  }
+  if (status != jb::TmcStatus::Ok) {
+    reply_tmc_failure(status, why);
+    return;
+  }
+  const bool counted = static_cast<uint8_t>(after - before) == 1;
+  char buf[jb::kMaxLine];
+  jb::TextWriter w(buf, sizeof(buf));
+  w.str(counted ? "OK tmc write reg=0x" : "ERR tmc: write not counted reg=0x");
+  w.hex8(reg);
+  w.str(" val=");
+  hex32(w, value);
+  w.str(" ifcnt=0x");
+  w.hex8(static_cast<uint8_t>(before));
+  w.str("->0x");
+  w.hex8(static_cast<uint8_t>(after));
+  w.put('\n');
+  send(w, buf);
+}
+
 void cmd_stats()
 {
   const jb::ImuCounters c = jb::imu_counters();
@@ -169,7 +257,7 @@ void handle(const jb::Command & cmd)
   switch (cmd.kind) {
     case jb::CmdKind::Help:
       reply_text(true, "help ver i2cscan stats | imu info | imu cfg rate= dlpf= fs= | "
-        "stream on|off | mark [label]");
+        "stream on|off | mark [label] | tmc read <reg> | tmc write <reg> <val>");
       break;
     case jb::CmdKind::Ver:
       reply_text(true, "ver joint_bench " JB_VERSION);
@@ -202,6 +290,15 @@ void handle(const jb::Command & cmd)
       break;
     case jb::CmdKind::Stats:
       cmd_stats();
+      break;
+    // TMC transactions block for a few milliseconds, long enough to back up the sample queue.
+    case jb::CmdKind::TmcRead:
+      if (streaming) {reply_text(false, "stop the stream first"); break;}
+      cmd_tmc_read(cmd.tmc.reg);
+      break;
+    case jb::CmdKind::TmcWrite:
+      if (streaming) {reply_text(false, "stop the stream first"); break;}
+      cmd_tmc_write(cmd.tmc.reg, cmd.tmc.value);
       break;
     case jb::CmdKind::Invalid:
       reply_text(false, cmd.error);

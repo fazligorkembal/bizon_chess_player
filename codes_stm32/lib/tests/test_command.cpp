@@ -72,3 +72,37 @@ TEST(Command, RejectsALabelThatWouldBreakTheCsvLine)
     "mark: label too long");
   EXPECT_EQ(parse_command(("mark " + std::string(23, 'x')).c_str()).kind, CmdKind::Mark);
 }
+
+TEST(Command, ParsesTmcReadInDecimalAndHex)
+{
+  const jb::Command a = parse_command("tmc read 6");
+  ASSERT_EQ(a.kind, CmdKind::TmcRead);
+  EXPECT_EQ(a.tmc.reg, 6);
+  const jb::Command b = parse_command("tmc read 0x7F");
+  ASSERT_EQ(b.kind, CmdKind::TmcRead);
+  EXPECT_EQ(b.tmc.reg, 0x7F);
+  const jb::Command c = parse_command("tmc read 0");
+  ASSERT_EQ(c.kind, CmdKind::TmcRead);
+  EXPECT_EQ(c.tmc.reg, 0);
+}
+
+TEST(Command, ParsesTmcWriteWithTheFull32BitRange)
+{
+  const jb::Command a = parse_command("tmc write 0x00 0xFFFFFFFF");
+  ASSERT_EQ(a.kind, CmdKind::TmcWrite);
+  EXPECT_EQ(a.tmc.reg, 0);
+  EXPECT_EQ(a.tmc.value, 0xFFFFFFFFu);
+  EXPECT_EQ(parse_command("tmc write 0 4294967295").tmc.value, 0xFFFFFFFFu);
+  EXPECT_EQ(parse_command("tmc write 0 0x1c1").tmc.value, 0x1C1u);
+  EXPECT_EQ(parse_command("tmc write 0 0").kind, CmdKind::TmcWrite);
+}
+
+TEST(Command, RejectsBadTmcArguments)
+{
+  for (const char * line : {"tmc", "tmc read", "tmc read 128", "tmc read 0x80", "tmc read -1",
+      "tmc read 0x", "tmc read 6 7", "tmc write 0", "tmc write 0 4294967296",
+      "tmc write 0 0x100000000", "tmc write 0 0xG", "tmc write 0x80 0", "tmc peek 6"})
+  {
+    EXPECT_EQ(parse_command(line).kind, CmdKind::Invalid) << line;
+  }
+}

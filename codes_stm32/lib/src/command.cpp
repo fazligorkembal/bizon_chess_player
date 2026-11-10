@@ -61,6 +61,46 @@ bool parse_uint(std::string_view text, uint32_t max, uint32_t * out)
   return true;
 }
 
+// Like parse_uint, but zero is allowed and "0x" selects hex: 0..max, at most 32 bits.
+bool parse_number(std::string_view text, uint32_t max, uint32_t * out)
+{
+  uint64_t value = 0;
+  if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+    if (text.size() > 10) {
+      return false;
+    }
+    for (size_t i = 2; i < text.size(); ++i) {
+      const char c = text[i];
+      uint32_t digit = 0;
+      if (c >= '0' && c <= '9') {
+        digit = static_cast<uint32_t>(c - '0');
+      } else if (c >= 'a' && c <= 'f') {
+        digit = static_cast<uint32_t>(c - 'a' + 10);
+      } else if (c >= 'A' && c <= 'F') {
+        digit = static_cast<uint32_t>(c - 'A' + 10);
+      } else {
+        return false;
+      }
+      value = value * 16 + digit;
+    }
+  } else {
+    if (text.empty() || text.size() > 10) {
+      return false;
+    }
+    for (char c : text) {
+      if (c < '0' || c > '9') {
+        return false;
+      }
+      value = value * 10 + static_cast<uint32_t>(c - '0');
+    }
+  }
+  if (value > max) {
+    return false;
+  }
+  *out = static_cast<uint32_t>(value);
+  return true;
+}
+
 bool label_char(char c)
 {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
@@ -138,6 +178,29 @@ Command parse_mark(const std::string_view * words, int n)
   return cmd;
 }
 
+Command parse_tmc(const std::string_view * words, int n)
+{
+  Command cmd;
+  uint32_t reg = 0;
+  if (n >= 2 && words[1] == "read") {
+    if (n != 3) {return invalid("tmc read: expected a register");}
+    cmd.kind = CmdKind::TmcRead;
+  } else if (n >= 2 && words[1] == "write") {
+    if (n != 4) {return invalid("tmc write: expected a register and a value");}
+    cmd.kind = CmdKind::TmcWrite;
+    if (!parse_number(words[3], 0xFFFFFFFFu, &cmd.tmc.value)) {
+      return invalid("tmc: bad value");
+    }
+  } else {
+    return invalid("tmc: expected read or write");
+  }
+  if (!parse_number(words[2], 0x7F, &reg)) {
+    return invalid("tmc: register must be 0-127");
+  }
+  cmd.tmc.reg = static_cast<uint8_t>(reg);
+  return cmd;
+}
+
 }  // namespace
 
 Command parse_command(std::string_view line)
@@ -162,6 +225,9 @@ Command parse_command(std::string_view line)
       return kind_only(CmdKind::ImuInfo);
     }
     return invalid("imu: expected info or cfg");
+  }
+  if (head == "tmc") {
+    return parse_tmc(words, n);
   }
   if (head == "stream") {
     if (n == 2 && words[1] == "on") {
