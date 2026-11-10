@@ -72,3 +72,37 @@ ST-Link's 3.3 V wire powering the BlackPill and the wired TMC module, the BlackP
 dimly and the ST-Link then failed with `DEV_USB_COMM_ERR` until it was replugged; the voltage was
 not measured. With USB in and all four ST-Link wires, SWD connected. Hot-plug mode then failed with
 `failed to erase memory`, and the default (halting) connect mode flashed and verified.
+
+## Phase 1 step 3 result, first motion — 2026-11-10
+
+Passed on the breadboard, on a new WeAct BlackPill (STM32F401xD/E, 384 KB). The previous board
+had stopped responding on USB while a heatsink was being fitted to the module (see the wiring
+guide's power-on list). Motor 17HS4401S, unloaded, body fixed.
+
+Setup:
+- VREF trimmed to 0.50 V at the VREF hole, which is the one beside EN. With R110 sense resistors
+  that caps the current at about 0.35 A RMS whatever IRUN is.
+- 12 V, 0.30 A limit.
+- EN on PB5 (the module's 20 kohm pull-up holds it high), STEP on PA8, DIR on PB12.
+- GCONF 0x145 (SpreadCycle, pdn_disable). IHOLD_IRUN 0x00011008 (IRUN 16, about 0.19 A RMS;
+  IHOLD 8).
+
+Checks before the motor was connected, driver enabled:
+- No fault bits in DRV_STATUS, GSTAT clear.
+- `move 100 400` moved MSCNT by +128 and `move -100 400` by -128, as computed for 1/8 steps.
+- IOIN showed DIR low and then high.
+
+With the motor:
+- `move 1600 400` and `move -1600 400` each ended with the firmware's own `move done n=1600`;
+  the pulse count on the wire is not measured yet. The in-move GSTAT/GCONF supervision
+  found nothing, and DRV_STATUS fault bits stayed 0.
+- The open-load bits cleared once the motor moved.
+- The user saw one full turn clockwise for `dir=+` (looking at the shaft) and back again, with
+  no vibration or noise. The supply read 0.04 A at 12 V.
+- Run twice.
+
+Not done yet:
+- The endstop steps 2 and 4.
+- The logic-analyzer check of STEP/DIR timing and pulse count, which comes before speed or
+  current is raised.
+- Moving VM and the motor off the breadboard, which comes before current is raised.

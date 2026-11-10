@@ -23,7 +23,7 @@ schematic before soldering: board revisions differ in what they tie to PA0, PA9 
 
 ## Read this before every power-on
 
-The four ways to destroy a TMC2209, in the order people actually manage it:
+The ways to destroy a TMC2209, or the board beside it, in the order people actually manage it:
 
 1. **No bulk capacitor.** 100 µF low-ESR across `VM`/`GND` — the **motor** rail, never `VIO` —
    **on every driver**, at the driver's own `VM`/`GND` pins or socket pads, not at the PSU. One
@@ -40,7 +40,11 @@ The four ways to destroy a TMC2209, in the order people actually manage it:
    registers are written, and trim `VREF` low first.
 3. **`VIO` on 5 V.** It must be the same 3.3 V rail as the MCU, or `DIAG` and `PDN_UART` push
    5 V into pins that may not tolerate it.
-4. **No star ground.** PSU GND, servo BEC GND and BlackPill GND meet at one point. Motor return
+4. **A heatsink fitted with the module live.** The usual stick-on heatsink is bare aluminium on
+   the module's copper side, which is GND, an edge away from the header pins. Fit it only with
+   every supply off, on an insulating thermal pad, and check it touches no pin. On 2026-11-10 a
+   BlackPill stopped responding on USB at the moment one was being fitted on the breadboard.
+5. **No star ground.** PSU GND, servo BEC GND and BlackPill GND meet at one point. Motor return
    current through the signal ground is how endstops start triggering on their own.
 
 ## Reserved pins — do not allocate
@@ -226,7 +230,9 @@ switch on whatever the firmware does. The motor goes on in step 3, with `VM` off
    supply's current limit at 0.3 A. Read `IOIN` (0x06) over UART and expect `VERSION` = 0x21,
    `ENN` = 1, `MS1` = `MS2` = 0. Then write `GCONF` (0x00) with `tmc write`, which checks that
    `IFCNT` went up by one, and read it back with `tmc read 0x00`. On the bench the firmware
-   writes only `GCONF`, and never with `test_mode` (bit 9) set. `IHOLD_IRUN` is write-only, so it cannot be read back.
+   writes only `GCONF`, in a fixed profile (I_scale_analog set; internal_Rsense, shaft,
+   mstep_reg_select and test_mode clear), and `IHOLD_IRUN` with IRUN at most 16. `IHOLD_IRUN` is
+   write-only, so it cannot be read back.
    This proves the bus, the address strap, the resistor and the pull-up before any motor current
    exists. If this fails, nothing downstream is worth trying.
 2. **Endstop with the motor still off.** Poll PB10 and print it. Pass a piece of card through the
