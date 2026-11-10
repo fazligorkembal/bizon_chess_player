@@ -33,6 +33,11 @@ The four ways to destroy a TMC2209, in the order people actually manage it:
    itself tops out near 29 V. This is the single most common way these modules die, and it kills
    them silently on the first fast move rather than at power-on.
 2. **Plugging or unplugging a motor while `VM` is live.** Power down first. Every time.
+   Switching the supply off is not enough: the capacitors keep `VM` up. Measure `VM` at the
+   driver's pins and wait until it is near zero; never short the capacitors to discharge them.
+   **After power-up the driver runs the full current `IRUN` = 31 allows as soon as `EN` goes low**
+   (TMC2209 Rev. 1.09, p.52, §8), before any register write, so keep `EN` high until the current
+   registers are written, and trim `VREF` low first.
 3. **`VIO` on 5 V.** It must be the same 3.3 V rail as the MCU, or `DIAG` and `PDN_UART` push
    5 V into pins that may not tolerate it.
 4. **No star ground.** PSU GND, servo BEC GND and BlackPill GND meet at one point. Motor return
@@ -143,6 +148,16 @@ every disable, and nothing in firmware prevents it.
 - **PDN_UART is half-duplex.** All four `PDN_UART` pins hang on one node, each through its own
   1 kΩ series resistor, and that node goes to PA9 configured as USART1 in single-wire
   half-duplex mode. PA10 stays free.
+- **The UART line needs a pull-up.** The datasheet requires the line to idle high (TMC2209
+  Rev. 1.09, p.19, §4.1), and Trinamic's SilentStepStick pulls `PDN_UART` to GND with 20 kΩ
+  (hardware manual V1.20, R1). In half-duplex the STM32 releases PA9 while it receives, so
+  without help the line idles low. Fit **4.7 kΩ from `PDN_UART` to 3.3 V** on the driver side of
+  the 1 kΩ: against a 20 kΩ pull-down it idles at about 2.67 V, above the 2.31 V minimum high
+  level at `VIO` = 3.3 V. Checked for one driver; revisit the value when drivers 2-4 share the node.
+- **Check the module before wiring it.** A "TMC2209 V2.0" label does not fix the pinout. On
+  Trinamic's own module header pin 11 is `PDN`, pin 12 is `UART`, and solder jumper `JP1` picks
+  which one reaches the chip's `PDN_UART`. Clones differ. With no power, confirm `VM`, both `GND`
+  pins, `VIO` and the UART pin by continuity before anything is plugged in.
 - **Current.** Set `IHOLD_IRUN` over UART; the on-board `VREF` pot still sets the ceiling on most
   modules, so trim it conservatively first. For a 0.11 Ω-sense SilentStepStick the usual
   approximation is `I_rms ≈ VREF × 1.77 / 2.5` — 1.0 V gives about 0.7 A RMS. **Check the sense
@@ -199,11 +214,19 @@ A slotted photo-interrupter (H21A1, ITR9608 and similar) wired discretely:
 ## Phase 1 — joint 1 alone
 
 Wire only: TMC2209 #1 (address 0, MS1/MS2 to GND), PA8 STEP, PB12 DIR, PB5 EN, PA9 UART, PB10
-endstop, PA5 DIAG, and the motor. No other driver populated, no servo.
+endstop, PA5 DIAG, and the motor. No other driver populated, no servo. Steps 1 and 2 are the
+exception: the motor stays unplugged and `EN` is tied straight to 3.3 V, so the outputs cannot
+switch on whatever the firmware does. The motor goes on in step 3, with `VM` off and discharged.
 
-1. **VIO only, VM off.** Read `IOIN` (0x06) over UART and check the version field, then read back
-   a register you have written. This proves the bus, the address strap and the 1 kΩ resistor
-   before any motor current exists. If this fails, nothing downstream is worth trying.
+1. **VIO and VM on, motor not connected, `EN` high.** The UART needs `VM`: `VCC_IO` only feeds
+   the I/O pins, and the logic runs from the internal regulator on `VS` (TMC2209 Rev. 1.09, p.10,
+   §2.2 and p.11, §3.1), so with `VM` off a healthy driver stays silent. Use 12 V with the
+   supply's current limit at 0.3 A. Read `IOIN` (0x06) over UART and expect `VERSION` = 0x21,
+   `ENN` = 1, `MS1` = `MS2` = 0. Then write `GCONF` (0x00) with `tmc write`, which checks that
+   `IFCNT` went up by one, and read it back with `tmc read 0x00`. On the bench the firmware
+   writes only `GCONF`, and never with `test_mode` (bit 9) set. `IHOLD_IRUN` is write-only, so it cannot be read back.
+   This proves the bus, the address strap, the resistor and the pull-up before any motor current
+   exists. If this fails, nothing downstream is worth trying.
 2. **Endstop with the motor still off.** Poll PB10 and print it. Pass a piece of card through the
    slot and confirm the level flips, that it is stable at rest, and that it does not chatter.
 3. **VM on, low current.** `IRUN` at roughly a third of target. Command 200 full steps one way,

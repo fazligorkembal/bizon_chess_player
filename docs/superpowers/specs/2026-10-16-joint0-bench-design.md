@@ -187,6 +187,11 @@ New or changed here:
 
 - **24 V input:** screw terminal, then a 2 A slow-blow fuse, then a **1000 µF / 50 V** bulk
   capacitor at the board entry, then the `VM` bus.
+  **Ordered substitution, 2026-11-08:** use the purchased Koshin `PKLH-063V102MJ355`,
+  **1000 µF / 63 V**, in this position. The higher capacitor voltage rating does not change
+  the planned supply voltage or the driver's limits. Exact purchased parts and supplier links
+  are recorded in `hardware/joint_bench/README.md`; account for the 16 × 35.5 mm body and
+  7.5 mm lead spacing in the stage-B layout.
 - **At the driver:** 100 µF / 50 V low-ESR plus 100 nF ceramic across its own `VM`/`GND` pads,
   as the wiring guide requires.
 - **`VM` sense:** 100 kΩ / 10 kΩ divider with 100 nF to PA3. At 35 V the pin sees 3.18 V, so a
@@ -408,9 +413,10 @@ damped-oscillation decay must give back its damping ratio.
 
 ### Stage B
 
-Wiring guide phase 1, steps 1-6, as written there: UART readback with `VM` off, endstop with the
-motor off, low-current motion, endstop under motor current, ten homing runs from ten starting
-positions, and the angle check with a pointer. In addition:
+Wiring guide phase 1, steps 1-6, as written there: UART readback with `VM` on at 12 V and the
+motor disconnected, endstop with the motor off, low-current motion, endstop under motor current,
+ten homing runs from ten starting positions, and the angle check with a pointer. (Corrected
+2026-11-10: this said "with `VM` off", but the TMC2209 does not answer without `VM`.) In addition:
 
 - `VM` sense readings agree with the multimeter within 2% at rest;
 - the homing repeatability (max − min of the ten edge positions, in microsteps) is recorded,
