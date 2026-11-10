@@ -163,12 +163,42 @@ TEST(TmcUart, DoesNotAcceptAnEchoedWriteAsAReply)
   EXPECT_EQ(value, 0xDEADBEEFu);
 }
 
-TEST(TmcUart, BenchPolicyOpensOnlyGconfAndNeverItsTestModeBit)
+TEST(TmcUart, BenchPolicyKeepsGconfInTheBenchProfile)
 {
-  EXPECT_EQ(jb::tmc2209::bench_write_refusal(jb::tmc2209::kGconf, 0x000001C1), nullptr);
-  EXPECT_NE(jb::tmc2209::bench_write_refusal(jb::tmc2209::kGconf, 1u << 9), nullptr);
-  EXPECT_NE(jb::tmc2209::bench_write_refusal(jb::tmc2209::kGconf, 0xFFFFFFFF), nullptr);
-  for (uint8_t reg = 1; reg < 0x80; ++reg) {
-    EXPECT_NE(jb::tmc2209::bench_write_refusal(reg, 0), nullptr) << int(reg);
+  using jb::tmc2209::bench_write_refusal;
+  using jb::tmc2209::kGconf;
+  EXPECT_EQ(bench_write_refusal(kGconf, 0x00000145), nullptr);  // the first-motion profile
+  EXPECT_EQ(bench_write_refusal(kGconf, 0x00000141), nullptr);
+  EXPECT_NE(bench_write_refusal(kGconf, 0x00000144), nullptr);  // I_scale_analog cleared
+  EXPECT_NE(bench_write_refusal(kGconf, 0x00000147), nullptr);  // internal_Rsense
+  EXPECT_NE(bench_write_refusal(kGconf, 0x0000014D), nullptr);  // shaft
+  EXPECT_NE(bench_write_refusal(kGconf, 0x000001C5), nullptr);  // mstep_reg_select
+  EXPECT_NE(bench_write_refusal(kGconf, 0x00000345), nullptr);  // test_mode
+  EXPECT_NE(bench_write_refusal(kGconf, 0x00000545), nullptr);  // reserved bit 10
+  EXPECT_EQ(jb::tmc2209::bench_gconf_refusal(0x00000145), nullptr);
+  EXPECT_NE(jb::tmc2209::bench_gconf_refusal(0x00000144), nullptr);
+}
+
+TEST(TmcUart, BenchPolicyCapsIholdIrun)
+{
+  using jb::tmc2209::bench_write_refusal;
+  using jb::tmc2209::kIholdIrun;
+  EXPECT_EQ(bench_write_refusal(kIholdIrun, 0x00011008), nullptr);  // IHOLD 8, IRUN 16, delay 1
+  EXPECT_EQ(bench_write_refusal(kIholdIrun, 0x00000000), nullptr);
+  EXPECT_EQ(bench_write_refusal(kIholdIrun, 0x000F1010), nullptr);  // IHOLD = IRUN = 16
+  EXPECT_NE(bench_write_refusal(kIholdIrun, 0x00001108), nullptr);  // IRUN 17
+  EXPECT_NE(bench_write_refusal(kIholdIrun, 0x00001F00), nullptr);  // IRUN 31, the reset value
+  EXPECT_NE(bench_write_refusal(kIholdIrun, 0x00000809), nullptr);  // IHOLD 9 > IRUN 8
+  EXPECT_NE(bench_write_refusal(kIholdIrun, 0x00100808), nullptr);  // reserved bit 20
+  EXPECT_NE(bench_write_refusal(kIholdIrun, 0x00002008), nullptr);  // reserved bit 13
+}
+
+TEST(TmcUart, BenchPolicyKeepsEveryOtherRegisterClosed)
+{
+  for (unsigned reg = 0; reg < 0x80; ++reg) {
+    if (reg == jb::tmc2209::kGconf || reg == jb::tmc2209::kIholdIrun) {
+      continue;
+    }
+    EXPECT_NE(jb::tmc2209::bench_write_refusal(static_cast<uint8_t>(reg), 0), nullptr) << reg;
   }
 }

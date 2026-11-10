@@ -167,6 +167,9 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+  /* Disable the stepper driver (EN is active low) before stopping: the pull-up alone cannot
+     override a pin still driven low. A register write, so it works from any context. */
+  TMC_EN_GPIO_Port->BSRR = TMC_EN_Pin;
   __disable_irq();
   while (1)
   {

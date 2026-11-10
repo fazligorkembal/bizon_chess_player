@@ -178,10 +178,50 @@ Command parse_mark(const std::string_view * words, int n)
   return cmd;
 }
 
+// Optional minus sign, then decimal digits; magnitude 1..max.
+bool parse_signed(std::string_view text, int32_t max, int32_t * out)
+{
+  bool negative = false;
+  if (!text.empty() && text[0] == '-') {
+    negative = true;
+    text = slice(text, 1, text.size() - 1);
+  }
+  uint32_t magnitude = 0;
+  if (!parse_uint(text, static_cast<uint32_t>(max), &magnitude)) {
+    return false;
+  }
+  *out = negative ? -static_cast<int32_t>(magnitude) : static_cast<int32_t>(magnitude);
+  return true;
+}
+
+Command parse_move(const std::string_view * words, int n)
+{
+  if (n != 3) {
+    return invalid("move: expected <microsteps> <rate_hz>");
+  }
+  Command cmd;
+  cmd.kind = CmdKind::Move;
+  if (!parse_signed(words[1], kMaxMoveSteps, &cmd.move.steps)) {
+    return invalid("move: microsteps must be +-1..64000");
+  }
+  if (!parse_uint(words[2], kMaxMoveRateHz, &cmd.move.rate_hz)) {
+    return invalid("move: rate must be 1..2000 Hz");
+  }
+  return cmd;
+}
+
 Command parse_tmc(const std::string_view * words, int n)
 {
   Command cmd;
   uint32_t reg = 0;
+  if (n >= 2 && words[1] == "en") {
+    if (n == 3 && (words[2] == "on" || words[2] == "off")) {
+      cmd.kind = CmdKind::TmcEnable;
+      cmd.tmc.on = words[2] == "on";
+      return cmd;
+    }
+    return invalid("tmc en: expected on or off");
+  }
   if (n >= 2 && words[1] == "read") {
     if (n != 3) {return invalid("tmc read: expected a register");}
     cmd.kind = CmdKind::TmcRead;
@@ -192,7 +232,7 @@ Command parse_tmc(const std::string_view * words, int n)
       return invalid("tmc: bad value");
     }
   } else {
-    return invalid("tmc: expected read or write");
+    return invalid("tmc: expected read, write or en");
   }
   if (!parse_number(words[2], 0x7F, &reg)) {
     return invalid("tmc: register must be 0-127");
@@ -229,6 +269,21 @@ Command parse_command(std::string_view line)
   if (head == "tmc") {
     return parse_tmc(words, n);
   }
+  if (head == "move") {
+    return parse_move(words, n);
+  }
+  if (head == "es") {
+    if (n == 1) {
+      return kind_only(CmdKind::EndstopRead);
+    }
+    if (n == 3 && words[1] == "watch" && (words[2] == "on" || words[2] == "off")) {
+      Command cmd;
+      cmd.kind = CmdKind::EndstopWatch;
+      cmd.tmc.on = words[2] == "on";
+      return cmd;
+    }
+    return invalid("es: expected nothing, or watch on|off");
+  }
   if (head == "stream") {
     if (n == 2 && words[1] == "on") {
       return kind_only(CmdKind::StreamOn);
@@ -247,6 +302,8 @@ Command parse_command(std::string_view line)
     kind = CmdKind::I2cScan;
   } else if (head == "stats") {
     kind = CmdKind::Stats;
+  } else if (head == "stop") {
+    kind = CmdKind::Stop;
   } else {
     return invalid("unknown command");
   }

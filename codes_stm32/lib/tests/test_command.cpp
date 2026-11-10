@@ -106,3 +106,55 @@ TEST(Command, RejectsBadTmcArguments)
     EXPECT_EQ(parse_command(line).kind, CmdKind::Invalid) << line;
   }
 }
+
+TEST(Command, ParsesTmcEnable)
+{
+  const jb::Command on = parse_command("tmc en on");
+  ASSERT_EQ(on.kind, CmdKind::TmcEnable);
+  EXPECT_TRUE(on.tmc.on);
+  const jb::Command off = parse_command("tmc en off");
+  ASSERT_EQ(off.kind, CmdKind::TmcEnable);
+  EXPECT_FALSE(off.tmc.on);
+  for (const char * line : {"tmc en", "tmc en yes", "tmc en on now"}) {
+    EXPECT_EQ(parse_command(line).kind, CmdKind::Invalid) << line;
+  }
+}
+
+TEST(Command, ParsesSignedMovesWithinTheBenchLimits)
+{
+  const jb::Command fwd = parse_command("move 1600 400");
+  ASSERT_EQ(fwd.kind, CmdKind::Move);
+  EXPECT_EQ(fwd.move.steps, 1600);
+  EXPECT_EQ(fwd.move.rate_hz, 400u);
+  const jb::Command back = parse_command("move -1600 400");
+  ASSERT_EQ(back.kind, CmdKind::Move);
+  EXPECT_EQ(back.move.steps, -1600);
+  EXPECT_EQ(parse_command("move 64000 2000").move.steps, 64000);
+  EXPECT_EQ(parse_command("move -64000 1").move.steps, -64000);
+  for (const char * line : {"move", "move 1600", "move 0 400", "move -0 400", "move 64001 400",
+      "move -64001 400", "move 1600 0", "move 1600 2001", "move --5 400", "move +5 400",
+      "move 1600 -400", "move 1600 400 1", "move 2147483648 400", "move -2147483648 400"})
+  {
+    EXPECT_EQ(parse_command(line).kind, CmdKind::Invalid) << line;
+  }
+}
+
+TEST(Command, ParsesStop)
+{
+  EXPECT_EQ(parse_command("stop").kind, CmdKind::Stop);
+  EXPECT_EQ(parse_command("stop now").kind, CmdKind::Invalid);
+}
+
+TEST(Command, ParsesEndstopCommands)
+{
+  EXPECT_EQ(parse_command("es").kind, CmdKind::EndstopRead);
+  const jb::Command on = parse_command("es watch on");
+  ASSERT_EQ(on.kind, CmdKind::EndstopWatch);
+  EXPECT_TRUE(on.tmc.on);
+  const jb::Command off = parse_command("es watch off");
+  ASSERT_EQ(off.kind, CmdKind::EndstopWatch);
+  EXPECT_FALSE(off.tmc.on);
+  for (const char * line : {"es 1", "es watch", "es watch maybe", "es watch on now"}) {
+    EXPECT_EQ(parse_command(line).kind, CmdKind::Invalid) << line;
+  }
+}

@@ -20,6 +20,11 @@ enum class CmdKind
   Stats,
   TmcRead,
   TmcWrite,
+  TmcEnable,
+  Move,
+  Stop,
+  EndstopRead,
+  EndstopWatch,
 };
 
 // Fields left at 0 keep their current value. Whether a value is one the chip supports is
@@ -37,6 +42,17 @@ struct TmcArgs
 {
   uint8_t reg = 0;     // 0..127
   uint32_t value = 0;  // tmc write only
+  bool on = false;     // tmc en, es watch
+};
+
+// Bench limits: 64000 microsteps is 40 turns at 1/8; 2000 Hz is 1.25 turns a second.
+constexpr int32_t kMaxMoveSteps = 64000;
+constexpr uint32_t kMaxMoveRateHz = 2000;
+
+struct MoveArgs
+{
+  int32_t steps = 0;     // microsteps, sign = direction, never 0
+  uint32_t rate_hz = 0;  // STEP rising edges per second, 1..kMaxMoveRateHz
 };
 
 struct Command
@@ -44,6 +60,7 @@ struct Command
   CmdKind kind = CmdKind::Invalid;
   ImuCfgArgs cfg;
   TmcArgs tmc;
+  MoveArgs move;
   char label[24] {};  // mark only; NUL-terminated, empty when no label was given
   const char * error = nullptr;  // set when kind is Invalid
 };
@@ -57,6 +74,10 @@ struct Command
 //   mark [label]                               label: 1-23 chars of [A-Za-z0-9_-]
 //   tmc read <reg>                             reg: 0-127
 //   tmc write <reg> <value>                    value: 0-0xFFFFFFFF
+//   tmc en on | tmc en off
+//   move <microsteps> <rate_hz>                microsteps: +-1..kMaxMoveSteps, not 0
+//   stop
+//   es | es watch on | es watch off
 //
 // tmc numbers are decimal, or hex with a 0x prefix, because datasheets list registers in hex.
 //

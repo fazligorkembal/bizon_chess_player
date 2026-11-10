@@ -148,19 +148,27 @@ TEST(TmcBenchCodex, ParserLeavesOtpAndTestModeRejectionToTheBenchPolicy)
 TEST(TmcBenchCodex, PolicyRejectsTestModeForEveryCombinationOfOtherDefinedGconfBits)
 {
   // Datasheet Rev. 1.09, p.23, section 5.1: GCONF has bits 0..9; test_mode is bit 9.
-  // Test all 2^9 combinations of bits 0..8, with bit 9 clear and set. This checks the
-  // bench's explicit policy, not whether each allowed configuration suits a later motor test.
+  // Test all 2^9 combinations of bits 0..8, with bit 9 clear and set. Updated by Claude on
+  // 2026-11-10 for the motion-stage profile, as Codex's step-3 review asked: a value passes
+  // only with I_scale_analog (bit 0) set and internal_Rsense (1), shaft (3) and
+  // mstep_reg_select (7) clear.
   for (uint32_t lower_bits = 0; lower_bits < 512; ++lower_bits) {
-    EXPECT_EQ(jb::tmc2209::bench_write_refusal(0x00, lower_bits), nullptr) << lower_bits;
+    const bool profile = (lower_bits & 0x1u) != 0 && (lower_bits & 0x8Au) == 0;
+    const char * refusal = jb::tmc2209::bench_write_refusal(0x00, lower_bits);
+    EXPECT_EQ(refusal == nullptr, profile) << lower_bits;
     EXPECT_NE(jb::tmc2209::bench_write_refusal(0x00, lower_bits + 512), nullptr) << lower_bits;
   }
 }
 
 TEST(TmcBenchCodex, PolicyRejectsEveryOtherByteAddressRegardlessOfValue)
 {
-  // The policy accepts only address 0x00. In particular, neither OTP_PROG (0x04)
-  // nor an out-of-range address with bit 7 set may alias GCONF.
+  // The policy accepts only GCONF (0x00) and IHOLD_IRUN (0x10). In particular, neither
+  // OTP_PROG (0x04) nor an out-of-range address with bit 7 set may alias either of them.
+  // Updated by Claude on 2026-11-10 when IHOLD_IRUN was opened for the motion stage.
   for (unsigned reg = 1; reg <= 255; ++reg) {
+    if (reg == 0x10) {
+      continue;
+    }
     for (uint32_t value : {0u, 0x1C1u, 0xBD00u, 0xFFFFFFFFu}) {
       EXPECT_NE(jb::tmc2209::bench_write_refusal(static_cast<uint8_t>(reg), value), nullptr)
         << reg << ":" << value;

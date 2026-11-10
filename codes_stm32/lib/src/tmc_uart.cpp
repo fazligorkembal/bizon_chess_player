@@ -24,16 +24,50 @@ uint8_t checksum(const uint8_t * bytes, size_t length)
 
 }
 
-const char * bench_write_refusal(uint8_t register_address, uint32_t value)
+const char * bench_gconf_refusal(uint32_t value)
 {
-  constexpr uint32_t kGconfTestMode = 1u << 9;
-  if (register_address != kGconf) {
-    return "tmc: only GCONF (0x00) may be written on the bench";
+  // Bits 0-9 are defined (p.23); anything above is reserved.
+  constexpr uint32_t kDefined = (1u << 10) - 1;
+  if ((value & ~kDefined) != 0) {
+    return "tmc: GCONF reserved bits must stay 0";
   }
   if ((value & kGconfTestMode) != 0) {
     return "tmc: GCONF test_mode (bit 9) must stay 0";
   }
+  if ((value & kGconfIScaleAnalog) == 0) {
+    return "tmc: GCONF I_scale_analog (bit 0) must stay 1, so VREF caps the current";
+  }
+  if ((value & kGconfInternalRsense) != 0) {
+    return "tmc: GCONF internal_Rsense (bit 1) must stay 0, the module has sense resistors";
+  }
+  if ((value & (kGconfShaft | kGconfMstepRegSelect)) != 0) {
+    return "tmc: GCONF shaft (bit 3) and mstep_reg_select (bit 7) stay 0 on the bench";
+  }
   return nullptr;
+}
+
+const char * bench_write_refusal(uint8_t register_address, uint32_t value)
+{
+  if (register_address == kGconf) {
+    return bench_gconf_refusal(value);
+  }
+  if (register_address == kIholdIrun) {
+    // IHOLD [4:0], IRUN [12:8], IHOLDDELAY [19:16] (p.28).
+    constexpr uint32_t kDefined = 0x000F1F1F;
+    if ((value & ~kDefined) != 0) {
+      return "tmc: IHOLD_IRUN reserved bits must stay 0";
+    }
+    const uint32_t ihold = value & 0x1F;
+    const uint32_t irun = (value >> 8) & 0x1F;
+    if (irun > kBenchMaxIrun) {
+      return "tmc: IRUN above the bench limit of 16";
+    }
+    if (ihold > irun) {
+      return "tmc: IHOLD must not exceed IRUN";
+    }
+    return nullptr;
+  }
+  return "tmc: only GCONF (0x00) and IHOLD_IRUN (0x10) may be written on the bench";
 }
 
 const char * reply_status_name(ReplyStatus status)
