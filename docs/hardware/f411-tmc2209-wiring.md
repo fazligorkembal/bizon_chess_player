@@ -133,8 +133,10 @@ every disable, and nothing in firmware prevents it.
 - **Never plug or unplug a motor while VM is live.** Same outcome.
 - **VIO must be 3.3 V**, the same rail as the MCU. Feeding VIO 5 V while the MCU drives 3.3 V
   logic is out of spec at the driver's input threshold and puts 5 V on DIAG and PDN_UART.
-- **MS1/MS2 select the UART address, not the microstepping,** once UART control is used.
-  Microsteps come from `CHOPCONF.MRES` over the bus.
+- **MS1/MS2 select the UART address,** and they keep selecting the microstepping too until
+  `GCONF.mstep_reg_select` (bit 7) is set: only then do microsteps come from `CHOPCONF.MRES` over
+  the bus (TMC2209 Rev. 1.09, p.23). With MS1 = MS2 = GND that means address 0 and 1/8 steps
+  until the firmware sets the bit.
 
   | Driver | MS1 | MS2 | Address |
   |---|---|---|---|

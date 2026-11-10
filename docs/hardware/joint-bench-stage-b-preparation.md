@@ -43,3 +43,32 @@ bounded STEP generation, the endstop and homing tests.
 
 The protocol logic added here is not connected to the command loop or any GPIO/UART peripheral.
 No firmware was flashed and no motor was powered for this increment.
+
+## Phase 1 step 1 result — 2026-11-10
+
+Passed on the breadboard. Module: "TMC2209 V2.0" sold by Twotrees, built on Makerbase's
+MKS TMC2209 V2.0_001 layout (schematic and pinout in `debug/datasheets/mks_tmc2209_v2.0/`,
+gitignored), sense resistors R110. Pins were confirmed unpowered against that layout: GND by
+continuity to the back copper, VIO-EN and PDN_UART-GND by their 20 kohm resistors, VM through C5.
+
+Setup: VIO 3.3 V from the BlackPill, VM 12 V at a 0.30 A limit (the supply read 0.003 A), EN tied
+to 3.3 V, MS1/MS2 to GND, PDN_UART through 1 kohm to PA9 with 4.7 kohm to 3.3 V, motor unplugged.
+
+| Check | Result |
+|---|---|
+| `tmc read 0x06` with VM off | `no reply`, as expected |
+| IOIN | `0x21000041`: VERSION 0x21, ENN 1, MS1 = MS2 = 0, PDN_UART high |
+| GCONF at power-up | `0x00000101`: I_scale_analog, multistep_filt; internal_Rsense 0 |
+| `tmc write 0x00 0x00000141` (pdn_disable) | IFCNT 0 -> 1, read back `0x00000141` |
+| `tmc write 0x10 ...` | refused by the bench policy |
+| 500 IOIN reads in a row | 500 correct, 1.85 ms per command round trip over USB |
+
+The first reads with VM on got no reply until the user reseated a connection; which one is not
+recorded. Codex decoded the registers against datasheet Rev. 1.09 and agreed the step passes.
+
+Flashing, as observed in this session: with USB in and three ST-Link wires (no 3.3 V), every SWD
+connect failed with `Unable to get core ID` (113 attempts over four minutes). With USB out and the
+ST-Link's 3.3 V wire powering the BlackPill and the wired TMC module, the BlackPill's LED glowed
+dimly and the ST-Link then failed with `DEV_USB_COMM_ERR` until it was replugged; the voltage was
+not measured. With USB in and all four ST-Link wires, SWD connected. Hot-plug mode then failed with
+`failed to erase memory`, and the default (halting) connect mode flashed and verified.
