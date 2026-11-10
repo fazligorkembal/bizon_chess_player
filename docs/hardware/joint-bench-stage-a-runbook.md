@@ -192,6 +192,36 @@ Yaw has no absolute reference without a magnetometer, so it drifts. At rest it m
 in two minutes in one run. Two ten-minute recordings integrated with a 2 s bias, as the node
 measures it, gave 0.18 and 0.31 degrees a minute, so expect anything up to about that.
 
+## Deferred platform measurements — 2026-11-08
+
+The user deferred these two IMU-only tests until a later bench session. Neither has been
+performed in this session. The motor-supply capacitors are not needed for these tests;
+use the existing STM32 + IMU USB-powered setup, with no motor power applied.
+
+Fix the IMU firmly to the platform, with its axes aligned as in section 6. Stop RViz's
+IMU view or any serial console first so only the recorder uses the port. From the repository
+root, enter `tools/joint_bench`.
+
+1. **Stationary baseline, 60 s:** do not touch the platform or table during the recording.
+
+       python3 -m joint_bench record -s 60 -l platform_rest
+
+2. **Initial tap recording, 15 s:** start recording, wait two seconds, then make five light
+   pencil taps on the platform, about two seconds apart. Do not strike the sensor.
+
+       python3 -m joint_bench record -s 15 -l platform_tap
+
+Keep both output directory names under `debug/bench/`. The recorder automatically creates
+analysis and plots. Re-analyze the tap recording against the measured stationary noise floor:
+
+    python3 -m joint_bench analyze ../../debug/bench/<timestamp>_platform_tap \
+        --noise-from ../../debug/bench/<timestamp>_platform_rest
+
+Use each recording's actual timestamp in the command. Inspect the noise floor, sample
+integrity, detected taps, dominant frequencies and damping. This first single-location tap
+recording does not complete A6: its three-location procedure in section 9 still remains.
+Record actual results only after the measurements are taken.
+
 ## Results
 
 | Test | Date | Result | Notes (values, directory names) |
@@ -204,6 +234,6 @@ measures it, gave 0.18 and 0.31 degrees a minute, so expect anything up to about
 | A6 | | | |
 | A7 | | | |
 | A8 | | | |
-| R1 no IMU at power-up | 2026-11-03 | Partly | Not run with the module unplugged, which needs hands. On PB7/PB8: BUSY forced over SWD and cleared by `i2cscan`; 20 of 20 MCU resets mid-stream came back with the IMU answering |
+| R1 no IMU at power-up | 2026-11-04 | PARTIAL: software reset and re-probe PASS, cold boot pending | Module out, MCU reset through AIRCR: fast blink, `imu info` gives `ERR imu: not found`, `i2cscan` none. Module reinserted with power on, no reset: `imu info` succeeds, LED slows to 1 Hz, 5012 samples at 1000.6 Hz with no gaps, `i2c_err=0`. Not a real power cycle: with USB unplugged the board kept running (its tick counter did not restart) because the ST-Link's 3.3 V wire was connected. With that wire removed, unplugging USB turns the LED off. A cold boot with the module out is not done yet. From 2026-11-03: BUSY forced over SWD and cleared by `i2cscan`; 20 of 20 MCU resets mid-stream came back with the IMU answering |
 | R2 host stops reading | 2026-11-03 | PASS | Scripted, 5 s without reading: `tx_drop` 0 to 4704, `samples` 1001 to 7089, console fine |
 | R3 USB drops out | 2026-11-03 | PASS | 6 of 6, `tx_drop` grew each time and the stream resumed with no `imu info`. One earlier `can't set config #1, error -110`, right after a failed SWD test, cleared by a reset and did not recur |
